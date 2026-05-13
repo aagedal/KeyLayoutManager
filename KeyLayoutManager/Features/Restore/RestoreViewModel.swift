@@ -9,6 +9,8 @@ final class RestoreViewModel {
     var incomingFiles: [URL] = []
     var destinations: [ProfileLocation] = []
     var selectedDestination: ProfileLocation?
+    var iCloudURL: URL?
+    var dropboxURL: URL?
     var statusMessage: String?
     var errorMessage: String?
 
@@ -24,6 +26,8 @@ final class RestoreViewModel {
         if selectedDestination == nil || !destinations.contains(where: { $0.id == selectedDestination?.id }) {
             selectedDestination = destinations.first
         }
+        iCloudURL = CloudTargets.iCloudDrive()
+        dropboxURL = CloudTargets.dropbox()
     }
 
     func add(urls: [URL]) {
@@ -46,6 +50,26 @@ final class RestoreViewModel {
     }
 
     func chooseFiles() {
+        runChooser(startingAt: nil, message: "Choose .kys keyboard layout files to restore.")
+    }
+
+    func chooseFromICloud() {
+        guard let root = iCloudURL else { return }
+        let backupRoot = root.appendingPathComponent(CloudTargets.backupSubfolder, isDirectory: true)
+        let startURL = FileManager.default.fileExists(atPath: backupRoot.path) ? backupRoot : root
+        runChooser(startingAt: startURL,
+                   message: "Pick .kys backups from iCloud Drive.")
+    }
+
+    func chooseFromDropbox() {
+        guard let root = dropboxURL else { return }
+        let backupRoot = root.appendingPathComponent(CloudTargets.backupSubfolder, isDirectory: true)
+        let startURL = FileManager.default.fileExists(atPath: backupRoot.path) ? backupRoot : root
+        runChooser(startingAt: startURL,
+                   message: "Pick .kys backups from Dropbox.")
+    }
+
+    private func runChooser(startingAt directoryURL: URL?, message: String) {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = true
         panel.canChooseDirectories = false
@@ -53,8 +77,9 @@ final class RestoreViewModel {
         if let kysType = UTType(filenameExtension: "kys") {
             panel.allowedContentTypes = [kysType]
         }
+        if let directoryURL { panel.directoryURL = directoryURL }
         panel.prompt = "Add"
-        panel.message = "Choose .kys keyboard layout files to restore."
+        panel.message = message
         if panel.runModal() == .OK {
             add(urls: panel.urls)
         }

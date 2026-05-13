@@ -50,7 +50,7 @@ struct ExportView: View {
         let layouts = model.allLayouts.filter { $0.origin.id == profile.id }
         DisclosureGroup {
             if layouts.isEmpty {
-                Text("(no .kys files)")
+                Text("(no .kys files — drop here to copy in)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else {
@@ -61,7 +61,9 @@ struct ExportView: View {
                 }
             }
         } label: {
-            Label(profile.profileName, systemImage: "person.crop.circle")
+            ProfileDropLabel(profile: profile) { urls in
+                Task { await model.dropOnProfile(urls: urls, profile: profile) }
+            }
         }
     }
 

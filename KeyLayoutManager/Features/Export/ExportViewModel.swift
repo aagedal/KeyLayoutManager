@@ -68,15 +68,24 @@ final class ExportViewModel {
 
     private var applyToAllPolicy: CollisionPolicy?
 
+    func dropOnProfile(urls: [URL], profile: ProfileLocation) async {
+        let kys = urls.filter { $0.pathExtension.lowercased() == "kys" }
+        guard !kys.isEmpty else { return }
+        await copyURLs(kys, into: profile.macDirURL, contextLabel: profile.displayName)
+        refresh()
+    }
+
     private func copyAll(into dest: URL, policyForFirst: CollisionPolicy) async {
+        await copyURLs(selectedLayouts.map(\.fileURL), into: dest, contextLabel: dest.path)
+    }
+
+    private func copyURLs(_ urls: [URL], into dest: URL, contextLabel: String) async {
         applyToAllPolicy = nil
-        var copied = 0
-        var renamed = 0
-        var skipped = 0
-        for layout in selectedLayouts {
+        var copied = 0, renamed = 0, skipped = 0
+        for url in urls {
             let policy: CollisionPolicy = applyToAllPolicy ?? .prompt
             do {
-                let outcome = try await copier.copy(layout.fileURL, into: dest, policy: policy) { [weak self] target in
+                let outcome = try await copier.copy(url, into: dest, policy: policy) { [weak self] target in
                     guard let self else { return .skip }
                     let result = await self.promptCollision(targetURL: target)
                     if result.applyToAll { await self.setApplyToAll(result.policy) }
@@ -88,23 +97,23 @@ final class ExportViewModel {
                 case .skipped: skipped += 1
                 }
             } catch {
-                errorMessage = "\(layout.displayName): \(error.localizedDescription)"
+                errorMessage = "\(url.lastPathComponent): \(error.localizedDescription)"
             }
         }
-        statusMessage = summary(copied: copied, renamed: renamed, skipped: skipped, dest: dest)
+        statusMessage = summary(copied: copied, renamed: renamed, skipped: skipped, label: contextLabel)
     }
 
     private func setApplyToAll(_ policy: CollisionPolicy) {
         applyToAllPolicy = policy
     }
 
-    private func summary(copied: Int, renamed: Int, skipped: Int, dest: URL) -> String {
+    private func summary(copied: Int, renamed: Int, skipped: Int, label: String) -> String {
         var parts: [String] = []
         if copied > 0 { parts.append("\(copied) copied") }
         if renamed > 0 { parts.append("\(renamed) renamed") }
         if skipped > 0 { parts.append("\(skipped) skipped") }
         let summary = parts.isEmpty ? "Nothing to do" : parts.joined(separator: ", ")
-        return "\(summary) → \(dest.path)"
+        return "\(summary) → \(label)"
     }
 
     private func promptCollision(targetURL: URL) async -> (policy: CollisionPolicy, applyToAll: Bool) {

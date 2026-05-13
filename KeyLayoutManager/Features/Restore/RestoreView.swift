@@ -33,8 +33,26 @@ struct RestoreView: View {
                 .foregroundStyle(.secondary)
             Text("Drop .kys files here")
                 .font(.headline)
-            Button("Choose files…") {
-                model.chooseFiles()
+            HStack(spacing: 8) {
+                Button {
+                    model.chooseFiles()
+                } label: {
+                    Label("Choose files…", systemImage: "folder")
+                }
+                if model.iCloudURL != nil {
+                    Button {
+                        model.chooseFromICloud()
+                    } label: {
+                        Label("From iCloud…", systemImage: "icloud")
+                    }
+                }
+                if model.dropboxURL != nil {
+                    Button {
+                        model.chooseFromDropbox()
+                    } label: {
+                        Label("From Dropbox…", systemImage: "shippingbox")
+                    }
+                }
             }
         }
         .frame(maxWidth: .infinity, minHeight: 140)
