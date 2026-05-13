@@ -1,0 +1,77 @@
+name: PremiereKeyboarder
+options:
+  bundleIdPrefix: com.trulsaagedal
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: true
+  groupSortPosition: top
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    ENABLE_HARDENED_RUNTIME: YES
+    DEAD_CODE_STRIPPING: YES
+    SWIFT_STRICT_CONCURRENCY: minimal
+
+targets:
+  PremiereKeyboarder:
+    type: application
+    platform: macOS
+    sources:
+      - path: PremiereKeyboarder
+        excludes:
+          - "Resources/PremiereKeyboarder.entitlements"
+          - "Resources/Info.plist"
+    resources:
+      - path: PremiereKeyboarder/Assets.xcassets
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.trulsaagedal.PremiereKeyboarder
+        PRODUCT_NAME: PremiereKeyboarder
+        INFOPLIST_FILE: PremiereKeyboarder/Resources/Info.plist
+        CODE_SIGN_ENTITLEMENTS: PremiereKeyboarder/Resources/PremiereKeyboarder.entitlements
+        CODE_SIGN_STYLE: Automatic
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        COMBINE_HIDPI_IMAGES: YES
+    info:
+      path: PremiereKeyboarder/Resources/Info.plist
+      properties:
+        CFBundleName: PremiereKeyboarder
+        CFBundleDisplayName: Premiere Keyboarder
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
+        CFBundlePackageType: APPL
+        LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)
+        NSHumanReadableCopyright: "© 2026 Truls Aagedal"
+        LSApplicationCategoryType: public.app-category.utilities
+        NSDocumentsFolderUsageDescription: "Premiere Keyboarder needs access to your Documents folder to read and write Adobe Premiere Pro keyboard layout files."
+
+  PremiereKeyboarderTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - PremiereKeyboarderTests
+    dependencies:
+      - target: PremiereKeyboarder
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.trulsaagedal.PremiereKeyboarderTests
+
+schemes:
+  PremiereKeyboarder:
+    build:
+      targets:
+        PremiereKeyboarder: all
+        PremiereKeyboarderTests: [test]
+    test:
+      targets:
+        - PremiereKeyboarderTests
+    run:
+      config: Debug
+    archive:
+      config: Release
