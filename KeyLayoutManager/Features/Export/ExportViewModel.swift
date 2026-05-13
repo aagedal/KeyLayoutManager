@@ -75,6 +75,29 @@ final class ExportViewModel {
         refresh()
     }
 
+    func deleteProfile(_ profile: ProfileLocation) async {
+        let profileDir = profile.macDirURL.deletingLastPathComponent()
+
+        let alert = NSAlert()
+        alert.messageText = "Delete profile \"\(profile.profileName)\"?"
+        alert.informativeText = "This moves the entire profile folder for Premiere Pro \(profile.version) to the Trash, including all of its keyboard shortcuts and other settings. You can recover it from the Trash."
+        alert.alertStyle = .warning
+        let deleteButton = alert.addButton(withTitle: "Move to Trash")
+        deleteButton.hasDestructiveAction = true
+        alert.addButton(withTitle: "Cancel")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+
+        do {
+            _ = try await NSWorkspace.shared.recycle([profileDir])
+            statusMessage = "Moved \"\(profile.profileName)\" to Trash."
+            errorMessage = nil
+            selection = selection.filter { !$0.path.hasPrefix(profileDir.path) }
+            refresh()
+        } catch {
+            errorMessage = "Couldn't delete \"\(profile.profileName)\": \(error.localizedDescription)"
+        }
+    }
+
     private func copyAll(into dest: URL, policyForFirst: CollisionPolicy) async {
         await copyURLs(selectedLayouts.map(\.fileURL), into: dest, contextLabel: dest.path)
     }

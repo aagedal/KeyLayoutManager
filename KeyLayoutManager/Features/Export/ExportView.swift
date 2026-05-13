@@ -64,6 +64,13 @@ struct ExportView: View {
             ProfileDropLabel(profile: profile) { urls in
                 Task { await model.dropOnProfile(urls: urls, profile: profile) }
             }
+            .contextMenu {
+                Button(role: .destructive) {
+                    Task { await model.deleteProfile(profile) }
+                } label: {
+                    Label("Delete Profile…", systemImage: "trash")
+                }
+            }
         }
     }
 
