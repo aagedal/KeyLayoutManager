@@ -94,7 +94,7 @@ final class ZipServiceTests: XCTestCase {
         XCTAssertFalse(paths.contains(where: { ($0 as NSString).lastPathComponent.hasPrefix("._") }))
     }
 
-    func testCreateZipExcludesMacMetadata() async throws {
+    func testCreateZipExcludesNoiseFiles() async throws {
         let profileRoot = tmpRoot.appendingPathComponent("Profile-x", isDirectory: true)
         let mac = profileRoot.appendingPathComponent("Mac", isDirectory: true)
         try fm.createDirectory(at: mac, withIntermediateDirectories: true)
@@ -102,6 +102,9 @@ final class ZipServiceTests: XCTestCase {
         try Data("junk".utf8).write(to: profileRoot.appendingPathComponent(".DS_Store"))
         try Data("junk".utf8).write(to: mac.appendingPathComponent(".DS_Store"))
         try Data("ad".utf8).write(to: mac.appendingPathComponent("._Default.kys"))
+        try Data("cache".utf8).write(to: profileRoot.appendingPathComponent("metadatacache.prmdc2"))
+        try Data("wal".utf8).write(to: profileRoot.appendingPathComponent("metadatacache.prmdc2-wal"))
+        try Data("shm".utf8).write(to: profileRoot.appendingPathComponent("metadatacache.prmdc2-shm"))
 
         let zipURL = tmpRoot.appendingPathComponent("clean.zip")
         let manifest = BackupManifest(appVersion: "test",
@@ -114,6 +117,27 @@ final class ZipServiceTests: XCTestCase {
         XCTAssertTrue(paths.contains("Mac/Default.kys"))
         XCTAssertFalse(paths.contains(where: { ($0 as NSString).lastPathComponent == ".DS_Store" }))
         XCTAssertFalse(paths.contains(where: { ($0 as NSString).lastPathComponent.hasPrefix("._") }))
+        XCTAssertFalse(paths.contains(where: { ($0 as NSString).lastPathComponent.hasPrefix("metadatacache.prmdc2") }))
+    }
+
+    func testListEntriesSkipsMetadataCacheFromExistingZip() async throws {
+        let zipURL = tmpRoot.appendingPathComponent("legacy.zip")
+        let staging = tmpRoot.appendingPathComponent("legacy", isDirectory: true)
+        try fm.createDirectory(at: staging, withIntermediateDirectories: true)
+        try Data("ok".utf8).write(to: staging.appendingPathComponent("real.txt"))
+        try Data("cache".utf8).write(to: staging.appendingPathComponent("metadatacache.prmdc2"))
+        try Data("wal".utf8).write(to: staging.appendingPathComponent("metadatacache.prmdc2-wal"))
+
+        let proc = Process()
+        proc.executableURL = URL(fileURLWithPath: "/usr/bin/zip")
+        proc.currentDirectoryURL = staging
+        proc.arguments = ["-rq", zipURL.path, "."]
+        try proc.run()
+        proc.waitUntilExit()
+
+        let paths = try await ZipService().listEntries(zip: zipURL).map(\.path)
+        XCTAssertTrue(paths.contains("real.txt"))
+        XCTAssertFalse(paths.contains(where: { ($0 as NSString).lastPathComponent.hasPrefix("metadatacache.prmdc2") }))
     }
 
     func testReadManifestReturnsNilForArbitraryZip() async throws {

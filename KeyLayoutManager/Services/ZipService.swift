@@ -58,7 +58,9 @@ struct ZipService {
                                     "-x", "*.DS_Store",
                                     "-x", "*/.DS_Store",
                                     "-x", "._*",
-                                    "-x", "*/._*"
+                                    "-x", "*/._*",
+                                    "-x", "metadatacache.prmdc2*",
+                                    "-x", "*/metadatacache.prmdc2*"
                                  ],
                                  cwd: sourceDir)
 
@@ -76,14 +78,14 @@ struct ZipService {
             .split(whereSeparator: { $0 == "\n" || $0 == "\r" })
             .map(String.init)
             .filter { !$0.isEmpty }
-            .filter { !Self.isMacMetadata(path: $0) }
+            .filter { !Self.isExcluded(path: $0) }
             .map(ZipEntry.init(path:))
     }
 
     func extract(entries: [String],
                  from zip: URL,
                  into destinationDir: URL) async throws -> [String: URL] {
-        let fileEntries = entries.filter { !$0.hasSuffix("/") && !Self.isMacMetadata(path: $0) }
+        let fileEntries = entries.filter { !$0.hasSuffix("/") && !Self.isExcluded(path: $0) }
         guard !fileEntries.isEmpty else { return [:] }
 
         try fm.createDirectory(at: destinationDir, withIntermediateDirectories: true)
@@ -108,11 +110,12 @@ struct ZipService {
         return try? decoder.decode(BackupManifest.self, from: data)
     }
 
-    static func isMacMetadata(path: String) -> Bool {
+    static func isExcluded(path: String) -> Bool {
         if path.hasPrefix("__MACOSX/") { return true }
         let filename = (path as NSString).lastPathComponent
         if filename == ".DS_Store" { return true }
         if filename.hasPrefix("._") { return true }
+        if filename.hasPrefix("metadatacache.prmdc2") { return true }
         return false
     }
 
