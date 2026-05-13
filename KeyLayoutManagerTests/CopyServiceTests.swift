@@ -1,5 +1,5 @@
 import XCTest
-@testable import PremiereKeyboarder
+@testable import KeyLayoutManager
 
 final class CopyServiceTests: XCTestCase {
     var tmpRoot: URL!

@@ -11,7 +11,7 @@ final class TempStage {
     init(fileManager: FileManager = .default) {
         self.fm = fileManager
         self.stageRoot = fileManager.temporaryDirectory
-            .appendingPathComponent("PremiereKeyboarder-\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent("KeyLayoutManager-\(UUID().uuidString)", isDirectory: true)
         try? fileManager.createDirectory(at: stageRoot, withIntermediateDirectories: true)
     }
 

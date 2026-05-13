@@ -2,7 +2,7 @@ import SwiftUI
 import AppKit
 
 @main
-struct PremiereKeyboarderApp: App {
+struct KeyLayoutManagerApp: App {
     init() {
         NotificationCenter.default.addObserver(
             forName: NSApplication.willTerminateNotification,

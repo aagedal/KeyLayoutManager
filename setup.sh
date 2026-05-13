@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Bootstrap: install XcodeGen if missing, generate PremiereKeyboarder.xcodeproj.
+# Bootstrap: install XcodeGen if missing, generate KeyLayoutManager.xcodeproj.
 set -euo pipefail
 
 cd "$(dirname "$0")"
@@ -29,4 +29,4 @@ xcodegen generate
 
 echo
 echo "✓ Done."
-echo "  Open with: open PremiereKeyboarder.xcodeproj"
+echo "  Open with: open KeyLayoutManager.xcodeproj"

@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Premiere Keyboarder</string>
+	<string>Key Layout Manager</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -13,7 +13,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>PremiereKeyboarder</string>
+	<string>KeyLayoutManager</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -25,7 +25,7 @@
 	<key>LSMinimumSystemVersion</key>
 	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
 	<key>NSDocumentsFolderUsageDescription</key>
-	<string>Premiere Keyboarder needs access to your Documents folder to read and write Adobe Premiere Pro keyboard layout files.</string>
+	<string>Key Layout Manager needs access to your Documents folder to read and write Adobe Premiere Pro keyboard layout files.</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>© 2026 Truls Aagedal</string>
 </dict>

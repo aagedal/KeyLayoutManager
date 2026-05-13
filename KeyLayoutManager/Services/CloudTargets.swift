@@ -1,7 +1,7 @@
 import Foundation
 
 enum CloudTargets {
-    static let backupSubfolder = "PremiereKeyboarder"
+    static let backupSubfolder = "KeyLayoutManager"
 
     static func iCloudDrive(fileManager: FileManager = .default) -> URL? {
         let url = fileManager.homeDirectoryForCurrentUser
