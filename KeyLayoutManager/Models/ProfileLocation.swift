@@ -7,7 +7,9 @@ struct ProfileLocation: Identifiable, Hashable {
 
     var id: String { "\(version)/\(profileName)" }
 
-    var displayName: String { "\(version) — \(profileName)" }
+    var displayName: String {
+        "\(PremiereProduct.displayName(forVersion: version)) — \(profileName)"
+    }
 
     var macDirURL: URL { directoryURL(for: .kys) }
 

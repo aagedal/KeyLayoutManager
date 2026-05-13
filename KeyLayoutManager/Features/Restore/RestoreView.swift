@@ -9,6 +9,7 @@ struct RestoreView: View {
         VStack(alignment: .leading, spacing: 16) {
             dropZone
             destinationPicker
+            backupBanner
             fileList
             actions
             Spacer()
@@ -31,7 +32,7 @@ struct RestoreView: View {
             Image(systemName: "tray.and.arrow.down")
                 .font(.system(size: 36))
                 .foregroundStyle(.secondary)
-            Text("Drop .kys or .sppreset files here")
+            Text("Drop .kys, .sppreset, or a backup .zip here")
                 .font(.headline)
             HStack(spacing: 8) {
                 Button {
@@ -66,7 +67,7 @@ struct RestoreView: View {
                 .fill(isDropTargeted ? Color.blue.opacity(0.08) : Color.clear)
         )
         .dropDestination(for: URL.self) { urls, _ in
-            model.add(urls: urls)
+            Task { await model.add(urls: urls) }
             return !urls.isEmpty
         } isTargeted: { isDropTargeted = $0 }
     }
@@ -96,32 +97,117 @@ struct RestoreView: View {
     }
 
     @ViewBuilder
+    private var backupBanner: some View {
+        if let manifest = model.loadedBackupManifest {
+            HStack(spacing: 8) {
+                Image(systemName: "archivebox")
+                    .foregroundStyle(.blue)
+                Text("Backup of \(PremiereProduct.displayName(forVersion: manifest.sourceVersion)) — \(manifest.sourceProfileName)")
+                    .font(.subheadline.weight(.medium))
+                Text(manifest.createdAt, format: .dateTime.year().month().day().hour().minute())
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(8)
+            .background(RoundedRectangle(cornerRadius: 8).fill(Color.blue.opacity(0.08)))
+        } else if let label = model.loadedBackupSourceLabel {
+            HStack(spacing: 8) {
+                Image(systemName: "archivebox")
+                    .foregroundStyle(.orange)
+                Text("\(label) — no KeyLayoutManager manifest")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(8)
+            .background(RoundedRectangle(cornerRadius: 8).fill(Color.orange.opacity(0.08)))
+        }
+    }
+
+    @ViewBuilder
     private var fileList: some View {
-        if model.incomingFiles.isEmpty {
+        if model.incomingItems.isEmpty {
             Text("No files queued yet.")
                 .foregroundStyle(.secondary)
         } else {
             VStack(alignment: .leading, spacing: 4) {
-                Text("Incoming (\(model.incomingFiles.count))")
-                    .font(.subheadline.weight(.semibold))
+                HStack {
+                    Text("Incoming (\(model.incomingItems.count))")
+                        .font(.subheadline.weight(.semibold))
+                    Spacer()
+                    Button("Select all") { model.setAllSelected(true) }
+                        .buttonStyle(.borderless)
+                        .font(.caption)
+                    Button("Select none") { model.setAllSelected(false) }
+                        .buttonStyle(.borderless)
+                        .font(.caption)
+                }
                 List {
-                    ForEach(model.incomingFiles, id: \.self) { url in
-                        HStack {
-                            Image(systemName: model.kind(of: url)?.sfSymbol ?? "doc")
-                            Text(url.lastPathComponent)
-                            Spacer()
-                            Button {
-                                model.remove(url)
-                            } label: {
-                                Image(systemName: "xmark.circle.fill")
-                                    .foregroundStyle(.secondary)
+                    ForEach(model.groupedItems, id: \.group) { group in
+                        Section {
+                            ForEach(group.items) { item in
+                                itemRow(item)
                             }
-                            .buttonStyle(.borderless)
+                        } header: {
+                            groupHeader(name: group.group)
                         }
                     }
                 }
-                .frame(minHeight: 100, maxHeight: 220)
+                .frame(minHeight: 140, maxHeight: 320)
             }
+        }
+    }
+
+    private func groupHeader(name: String) -> some View {
+        let state = model.groupSelectionState(name)
+        return HStack(spacing: 6) {
+            Button {
+                model.setSelection(state != .all, in: name)
+            } label: {
+                Image(systemName: checkboxSymbol(for: state))
+                    .foregroundStyle(state == .none ? Color.secondary : Color.accentColor)
+            }
+            .buttonStyle(.borderless)
+            Text(name)
+                .font(.subheadline.weight(.semibold))
+        }
+    }
+
+    private func itemRow(_ item: IncomingItem) -> some View {
+        HStack(spacing: 6) {
+            Button {
+                model.toggle(id: item.id)
+            } label: {
+                Image(systemName: item.isSelected ? "checkmark.square.fill" : "square")
+                    .foregroundStyle(item.isSelected ? Color.accentColor : Color.secondary)
+            }
+            .buttonStyle(.borderless)
+            Image(systemName: item.kindHint?.sfSymbol ?? "doc")
+                .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(item.displayName)
+                if item.relativePath != item.displayName {
+                    Text(item.relativePath)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Spacer()
+            Button {
+                model.remove(id: item.id)
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.borderless)
+        }
+        .helpIfPresent(PremiereFileInfo.description(for: item.relativePath))
+    }
+
+    private func checkboxSymbol(for state: RestoreViewModel.GroupSelection) -> String {
+        switch state {
+        case .none: return "square"
+        case .partial: return "minus.square.fill"
+        case .all: return "checkmark.square.fill"
         }
     }
 
@@ -130,12 +216,12 @@ struct RestoreView: View {
             Button {
                 Task { await model.performRestore() }
             } label: {
-                Label("Restore", systemImage: "tray.and.arrow.down.fill")
+                Label(restoreLabel, systemImage: "tray.and.arrow.down.fill")
             }
-            .disabled(model.incomingFiles.isEmpty || model.selectedDestination == nil)
+            .disabled(model.selectedCount == 0 || model.selectedDestination == nil)
             .keyboardShortcut(.return, modifiers: [.command])
 
-            if !model.incomingFiles.isEmpty {
+            if !model.incomingItems.isEmpty {
                 Button("Clear") { model.clear() }
             }
             Spacer()
@@ -145,6 +231,24 @@ struct RestoreView: View {
             if let err = model.errorMessage {
                 Text(err).font(.callout).foregroundStyle(.red)
             }
+        }
+    }
+
+    private var restoreLabel: String {
+        let n = model.selectedCount
+        if n == 0 { return "Restore" }
+        if n == 1 { return "Restore 1 item" }
+        return "Restore \(n) items"
+    }
+}
+
+private extension View {
+    @ViewBuilder
+    func helpIfPresent(_ text: String?) -> some View {
+        if let text, !text.isEmpty {
+            self.help(text)
+        } else {
+            self
         }
     }
 }

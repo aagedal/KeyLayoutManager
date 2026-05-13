@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import AppKit
+import UniformTypeIdentifiers
 
 @MainActor
 @Observable
@@ -14,6 +15,7 @@ final class ExportViewModel {
 
     private let scanner: PremiereScanner
     private let copier = CopyService()
+    private let zipService = ZipService()
     private let stage = TempStage.shared
 
     init(scanner: PremiereScanner = PremiereScanner()) {
@@ -97,12 +99,42 @@ final class ExportViewModel {
         refresh()
     }
 
+    func backupProfile(_ profile: ProfileLocation) async {
+        let panel = NSSavePanel()
+        if let zipType = UTType("public.zip-archive") {
+            panel.allowedContentTypes = [zipType]
+        }
+        panel.canCreateDirectories = true
+        panel.nameFieldStringValue = "\(PremiereProduct.displayName(forVersion: profile.version)) — \(profile.profileName).zip"
+        panel.prompt = "Back Up"
+        panel.message = "Save a full backup of \"\(profile.profileName)\" (\(PremiereProduct.displayName(forVersion: profile.version)))."
+        guard panel.runModal() == .OK, let destination = panel.url else { return }
+
+        statusMessage = nil
+        errorMessage = nil
+
+        let manifest = BackupManifest(
+            appVersion: BackupManifest.currentAppVersion(),
+            sourceVersion: profile.version,
+            sourceProfileName: profile.profileName
+        )
+
+        do {
+            try await zipService.createZip(contents: profile.profileRootURL,
+                                           manifest: manifest,
+                                           to: destination)
+            statusMessage = "Backed up \"\(profile.profileName)\" → \(destination.lastPathComponent)"
+        } catch {
+            errorMessage = "Backup failed: \(error.localizedDescription)"
+        }
+    }
+
     func deleteProfile(_ profile: ProfileLocation) async {
         let profileDir = profile.profileRootURL
 
         let alert = NSAlert()
         alert.messageText = "Delete profile \"\(profile.profileName)\"?"
-        alert.informativeText = "This moves the entire profile folder for Premiere Pro \(profile.version) to the Trash, including all of its keyboard shortcuts and other settings. You can recover it from the Trash."
+        alert.informativeText = "This moves the entire profile folder for \(PremiereProduct.displayName(forVersion: profile.version)) to the Trash, including all of its keyboard shortcuts and other settings. You can recover it from the Trash."
         alert.alertStyle = .warning
         let deleteButton = alert.addButton(withTitle: "Move to Trash")
         deleteButton.hasDestructiveAction = true

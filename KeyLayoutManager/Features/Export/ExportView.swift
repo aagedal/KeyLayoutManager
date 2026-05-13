@@ -33,7 +33,7 @@ struct ExportView: View {
             } else {
                 List(selection: $model.selection) {
                     ForEach(model.installs) { install in
-                        Section(install.version) {
+                        Section(PremiereProduct.displayName(forVersion: install.version)) {
                             ForEach(install.profiles) { profile in
                                 profileSection(profile)
                             }
@@ -63,6 +63,12 @@ struct ExportView: View {
                 Task { await model.dropOnProfile(urls: urls, profile: profile) }
             }
             .contextMenu {
+                Button {
+                    Task { await model.backupProfile(profile) }
+                } label: {
+                    Label("Back Up Profile…", systemImage: "archivebox")
+                }
+                Divider()
                 Button(role: .destructive) {
                     Task { await model.deleteProfile(profile) }
                 } label: {
