@@ -1,29 +1,41 @@
 # Key Layout Manager
 
-Small native macOS utility for moving Adobe Premiere Pro keyboard layout
-(`.kys`) files between machines. SwiftUI, non-sandboxed, Developer ID
-signed for distribution.
+Small native macOS utility for managing Adobe Premiere keyboard layouts,
+source assignment presets, and full-profile backups. SwiftUI,
+non-sandboxed, Developer ID signed for distribution.
 
-Premiere stores per-user keyboard layouts at:
+Premiere stores per-user data at:
 
 ```
-~/Documents/Adobe/Premiere Pro/<version>/Profile-<username>/Mac/<Name>.kys
+~/Documents/Adobe/Premiere Pro/<version>/Profile-<username>/
+    Mac/<name>.kys                                 # keyboard shortcut layouts
+    Settings/Source Patcher Presets/<name>.sppreset  # source assignment presets
+    …everything else (workspaces, panel layouts, prefs, …)
 ```
 
-Moving those layouts between Macs today means hunting through nested
-Adobe folders in Finder. This app collapses that to one window:
+Moving any of that between Macs in Finder means hunting through nested
+Adobe folders. This app collapses it to one window:
 
-- **Export** — browse all `.kys` files Premiere has on the local machine,
-  multi-select, and either drag them straight into Slack / Mail / Finder
-  or export to a folder, iCloud Drive, or Dropbox.
-- **Restore** — drop a `.kys` file from anywhere onto the window (or
-  pick via file panel); the app auto-detects the Premiere profile on the
-  current machine and copies the file in, with collision prompts
-  (Overwrite / Keep both / Skip, plus "Apply to all remaining").
+- **Export** — browse every `.kys` and `.sppreset` Premiere has on the
+  local machine, multi-select, drag straight into Slack / Mail / Finder
+  or export to a folder, iCloud Drive, or Dropbox. Right-click a profile
+  to back up the *entire* `Profile-<user>` folder as a standalone `.zip`.
+- **Restore** — drop loose `.kys` / `.sppreset` files (or a backup
+  `.zip`) onto the window, or pick via the file panel. Backup zips
+  expand into a grouped, per-entry checklist so a "restore only the
+  keyboard layout" workflow stays one click away. Pick a destination
+  profile (can differ from the source's Premiere version) and restore.
+  Standard collision prompt (Overwrite / Keep both / Skip, plus "Apply
+  to all remaining") covers any conflicts. Hover any incoming row to
+  see a tooltip describing what that file does.
 
-The data model is shaped so phase 2 can add workspace XMLs
-(`Profile-*/Layouts/`) and presets (`Profile-*/Settings/`) without a
-rewrite — hence the broader project name.
+The version label adapts: Premiere 26 and later show as "Premiere
+\<version\>", earlier versions as "Premiere Pro \<version\>" — Adobe
+dropped "Pro" from the product name in v26.
+
+`.DS_Store`, AppleDouble metadata, and Premiere's regenerable
+`metadatacache.prmdc2*` files are filtered out of every backup, both
+when writing and when listing existing zips.
 
 ## Requirements
 
@@ -37,10 +49,10 @@ rewrite — hence the broader project name.
 ./setup.sh
 ```
 
-This installs [XcodeGen](https://github.com/yonaskolb/XcodeGen) via
-Homebrew if needed, then generates `KeyLayoutManager.xcodeproj` from
-`project.yml`. The `.xcodeproj` is gitignored — never hand-edit it; change
-`project.yml` and re-run `xcodegen`.
+Installs [XcodeGen](https://github.com/yonaskolb/XcodeGen) via Homebrew
+if needed, then generates `KeyLayoutManager.xcodeproj` from
+`project.yml`. The `.xcodeproj` is gitignored — never hand-edit it;
+change `project.yml` and re-run `xcodegen`.
 
 If `xcode-select -p` points at Command Line Tools, switch it:
 
@@ -54,25 +66,37 @@ Then:
 open KeyLayoutManager.xcodeproj
 ```
 
-Set your Team in **Signing & Capabilities**, hit Run.
+Set your Team in **Signing & Capabilities** (or add
+`DEVELOPMENT_TEAM` to `project.yml`) and hit Run. Without a team, Debug
+builds are ad-hoc-signed and macOS will re-prompt for Documents-folder
+access on every launch — a stable signature is what makes the TCC
+grant stick.
 
 ## Project layout
 
 ```
 KeyLayoutManager/
-  App/        # @main + RootView (TabView root)
-  Models/     # PremiereItemKind, ProfileLocation, KeyboardLayout, PremiereInstall
-  Services/   # PremiereScanner, CopyService, CloudTargets, TempStage
+  App/        # @main + RootView (Export / Restore tabs) + Sparkle
+  Models/     # PremiereItemKind, PremiereInstall, ProfileLocation,
+              # KeyboardLayout, IncomingItem, BackupManifest,
+              # PremiereProduct (version → name), PremiereFileInfo (tooltips)
+  Services/   # PremiereScanner, CopyService, CloudTargets, TempStage,
+              # ZipService (wraps /usr/bin/zip and /usr/bin/unzip)
   Features/
-    Export/   # source list, drag source, four export targets
-    Restore/  # drop zone, destination picker, collision alert
+    Export/   # source list, drag source, four export targets,
+              # "Back Up Profile…" + "Delete Profile…" context menu
+    Restore/  # drop zone, destination picker, grouped checklist,
+              # manifest banner, collision alert
   Resources/  # Info.plist, entitlements
   Assets.xcassets/
 KeyLayoutManagerTests/
-  PremiereScannerTests.swift
-  CopyServiceTests.swift
+  PremiereScannerTests, CopyServiceTests,
+  ZipServiceTests, BackupManifestTests,
+  PremiereProductTests, PremiereFileInfoTests
 project.yml   # XcodeGen config
 setup.sh      # bootstrap
+release-build.sh  # archive → notarize → staple → sign → upload → appcast
+appcast.xml   # Sparkle feed
 ```
 
 ## Run the unit tests
@@ -81,32 +105,52 @@ setup.sh      # bootstrap
 xcodebuild test -scheme KeyLayoutManager -destination 'platform=macOS'
 ```
 
-Tests cover the scanner (empty `Mac/`, missing `Mac/`, multi-digit
-version sort, non-version sibling dirs) and `CopyService` policies
-(overwrite, keepBoth name-bumping, skip, prompt routing).
+Currently 27 tests across six suites: scanner edges (empty `Mac/`,
+missing `Mac/`, multi-digit version sort, non-version sibling dirs),
+`CopyService` policies (overwrite, keepBoth name-bumping, skip, prompt
+routing), zip round-trip (create → list → extract a subset), backup
+manifest encode/decode, product-name version threshold, and
+file-description coverage.
 
 ## Manual test plan
 
-1. **Empty-version edge.** Launch app. Export tab shows newest Premiere
-   version → profile → `.kys` rows. Older versions with no `.kys` files
-   render an "(no .kys files)" line, not a crash.
-2. **Drag.** Drag a row from Export into Finder → file lands. Drag into
-   a Slack compose / Mail compose → attaches.
-3. **Export to…** Pick a folder via Save panel, confirm file arrives.
-4. **iCloud backup.** If `~/Library/Mobile Documents/com~apple~CloudDocs/`
-   exists, the button is visible and writes to
-   `KeyLayoutManager/<version>/<filename>` in iCloud Drive.
-5. **Dropbox backup.** If `~/Library/CloudStorage/Dropbox*` (or
-   `~/Dropbox`) exists, the Dropbox button mirrors the iCloud behavior.
-   Hidden otherwise.
-6. **Restore.** Drop a `.kys` file on the Restore tab. Destination
-   picker auto-selects the only profile if there's one; defaults to
-   newest version otherwise. Click Restore.
-7. **Collision prompt.** Restore the same file again — Overwrite / Keep
-   both / Skip alert appears with an "Apply to all remaining" toggle.
-   `Keep both` produces `Name (2).kys`.
-8. **TCC.** First launch shows a one-time "Documents folder" access
-   prompt. Approve once.
+1. **First launch.** "Documents folder" TCC prompt appears once. Click
+   Allow. Subsequent launches stay silent (assuming a stable signing
+   identity).
+2. **Export tab.** Newest Premiere version → profile → `Keyboard Layouts`
+   and `Source Assignment Presets` subsections render under the profile.
+   Sidebar header reads "Premiere 26.0" for v26+ and "Premiere Pro 25.x"
+   for older.
+3. **Drag.** Drag a row out into Finder, Slack, or Mail.
+4. **Export to…** Pick a folder via Save panel.
+5. **iCloud / Dropbox backup.** Buttons appear when the corresponding
+   cloud root exists; files land under `KeyLayoutManager/<version>/`.
+6. **Per-item restore.** Drop a loose `.kys` or `.sppreset` on the
+   Restore tab. Destination dropdown defaults to newest profile. Click
+   Restore.
+7. **Collision prompt.** Restore the same file again. Overwrite / Keep
+   both / Skip alert with "Apply to all remaining" toggle. `Keep both`
+   produces `Name (2).kys`.
+8. **Full profile backup.** Right-click a profile in the Export tab →
+   "Back Up Profile…" → choose a save location. The resulting `.zip`
+   contains the entire `Profile-<user>` tree plus a
+   `KeyLayoutManager-manifest.json` at the root. `.DS_Store`,
+   AppleDouble (`._*`), and `metadatacache.prmdc2*` files are absent.
+9. **Full restore.** Drop the new `.zip` on the Restore tab. The banner
+   shows "Backup of Premiere \<version\> — \<profile\>, \<date\>".
+   Entries appear grouped by top-level folder with checkboxes; pick a
+   destination profile, click "Restore N items".
+10. **Partial restore.** Load the same `.zip`, untick everything except
+    `Mac/<your>.kys`, click Restore. Verify only that one file is
+    copied.
+11. **Cross-version restore.** Pick a destination profile whose
+    Premiere version differs from the backup's. Restore still proceeds
+    (you accept any version mismatch consequences).
+12. **Right-click delete.** Right-click a profile → "Delete Profile…" →
+    confirm. Profile folder moves to Trash; sidebar refreshes.
+13. **Tooltips.** Hover an incoming row on the Restore tab — known
+    file types (kys, sppreset, `Adobe Premiere Pro Prefs`, `.guides`,
+    workspaces, …) show a one-sentence description.
 
 ## Distribution
 
@@ -134,7 +178,7 @@ in `project.yml`, regenerate the project, and run:
 
 ```bash
 ./release-build.sh                 # version read from project.yml
-./release-build.sh 0.2.0 2         # or override version + build
+./release-build.sh 1.1.0 2         # or override version + build
 ```
 
 The script archives, exports, notarizes, staples, zips (with AppleDouble
@@ -153,9 +197,3 @@ xcrun notarytool submit KeyLayoutManager.zip \
   --keychain-profile "Notary" --wait
 xcrun stapler staple KeyLayoutManager.app
 ```
-
-## Roadmap
-
-- Phase 1 (current): `.kys` keyboard layouts only.
-- Phase 2: workspace XMLs (`Profile-*/Layouts/UserWorkspace.xml`,
-  `WorkspaceConfig.xml`) and presets (`Profile-*/Settings/`).
