@@ -3,9 +3,17 @@ import Foundation
 struct ProfileLocation: Identifiable, Hashable {
     let version: String
     let profileName: String
-    let macDirURL: URL
+    let profileRootURL: URL
 
     var id: String { "\(version)/\(profileName)" }
 
     var displayName: String { "\(version) — \(profileName)" }
+
+    var macDirURL: URL { directoryURL(for: .kys) }
+
+    func directoryURL(for kind: PremiereItemKind) -> URL {
+        kind.profileSubpath.reduce(profileRootURL) { url, component in
+            url.appendingPathComponent(component, isDirectory: true)
+        }
+    }
 }

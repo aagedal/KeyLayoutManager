@@ -31,7 +31,7 @@ struct RestoreView: View {
             Image(systemName: "tray.and.arrow.down")
                 .font(.system(size: 36))
                 .foregroundStyle(.secondary)
-            Text("Drop .kys files here")
+            Text("Drop .kys or .sppreset files here")
                 .font(.headline)
             HStack(spacing: 8) {
                 Button {
@@ -107,7 +107,7 @@ struct RestoreView: View {
                 List {
                     ForEach(model.incomingFiles, id: \.self) { url in
                         HStack {
-                            Image(systemName: "keyboard")
+                            Image(systemName: model.kind(of: url)?.sfSymbol ?? "doc")
                             Text(url.lastPathComponent)
                             Spacer()
                             Button {

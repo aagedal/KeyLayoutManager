@@ -34,9 +34,13 @@ struct PremiereScanner {
     }
 
     func scanLayouts() throws -> [KeyboardLayout] {
+        try scanItems(of: .kys)
+    }
+
+    func scanItems(of kind: PremiereItemKind) throws -> [KeyboardLayout] {
         try scan().flatMap { install in
             install.profiles.flatMap { profile in
-                kysFiles(in: profile)
+                items(in: profile, kind: kind)
             }
         }
     }
@@ -75,23 +79,23 @@ struct PremiereScanner {
                 return nil
             }
             let profileName = String(name.dropFirst("Profile-".count))
-            let macDirURL = url.appendingPathComponent("Mac", isDirectory: true)
-            return ProfileLocation(version: version, profileName: profileName, macDirURL: macDirURL)
+            return ProfileLocation(version: version, profileName: profileName, profileRootURL: url)
         }
         .sorted { $0.profileName.localizedCaseInsensitiveCompare($1.profileName) == .orderedAscending }
     }
 
-    private func kysFiles(in profile: ProfileLocation) -> [KeyboardLayout] {
-        guard fm.fileExists(atPath: profile.macDirURL.path) else { return [] }
-        let entries = (try? fm.contentsOfDirectory(at: profile.macDirURL,
+    private func items(in profile: ProfileLocation, kind: PremiereItemKind) -> [KeyboardLayout] {
+        let directory = profile.directoryURL(for: kind)
+        guard fm.fileExists(atPath: directory.path) else { return [] }
+        let entries = (try? fm.contentsOfDirectory(at: directory,
                                                    includingPropertiesForKeys: [.fileSizeKey, .contentModificationDateKey],
                                                    options: [.skipsHiddenFiles])) ?? []
         return entries.compactMap { url -> KeyboardLayout? in
-            guard url.pathExtension.lowercased() == "kys" else { return nil }
+            guard url.pathExtension.lowercased() == kind.fileExtension else { return nil }
             let values = try? url.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey])
             let size = Int64(values?.fileSize ?? 0)
             let modified = values?.contentModificationDate ?? .distantPast
-            return KeyboardLayout(fileURL: url, byteSize: size, modified: modified, origin: profile)
+            return KeyboardLayout(fileURL: url, byteSize: size, modified: modified, origin: profile, kind: kind)
         }
         .sorted { $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending }
     }

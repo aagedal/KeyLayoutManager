@@ -47,18 +47,16 @@ struct ExportView: View {
 
     @ViewBuilder
     private func profileSection(_ profile: ProfileLocation) -> some View {
-        let layouts = model.allLayouts.filter { $0.origin.id == profile.id }
+        let layouts = model.items(for: profile, kind: .kys)
+        let presets = model.items(for: profile, kind: .sourcePatcher)
         DisclosureGroup {
-            if layouts.isEmpty {
-                Text("(no .kys files — drop here to copy in)")
+            if layouts.isEmpty && presets.isEmpty {
+                Text("(no items — drop .kys or .sppreset files here to copy in)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else {
-                ForEach(layouts) { layout in
-                    DraggableKysRow(layout: layout,
-                                    stagedURL: model.stagedURL(for: layout))
-                        .tag(layout.fileURL)
-                }
+                kindSubsection(title: "Keyboard Layouts", items: layouts)
+                kindSubsection(title: "Source Assignment Presets", items: presets)
             }
         } label: {
             ProfileDropLabel(profile: profile) { urls in
@@ -74,23 +72,38 @@ struct ExportView: View {
         }
     }
 
+    @ViewBuilder
+    private func kindSubsection(title: String, items: [KeyboardLayout]) -> some View {
+        if !items.isEmpty {
+            Text("\(title) (\(items.count))")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .padding(.top, 2)
+            ForEach(items) { item in
+                DraggableKysRow(layout: item,
+                                stagedURL: model.stagedURL(for: item))
+                    .tag(item.fileURL)
+            }
+        }
+    }
+
     private var detail: some View {
         VStack(alignment: .leading, spacing: 16) {
-            if model.selectedLayouts.isEmpty {
+            if model.selectedItems.isEmpty {
                 ContentUnavailableView(
-                    "Select keyboard layouts",
+                    "Select items to export",
                     systemImage: "hand.point.up.left",
-                    description: Text("Pick one or more .kys files on the left, then drag them out or export below.")
+                    description: Text("Pick keyboard layouts or source assignment presets on the left, then drag them out or export below.")
                 )
             } else {
-                Text("Selected (\(model.selectedLayouts.count))")
+                Text("Selected (\(model.selectedItems.count))")
                     .font(.headline)
-                ForEach(model.selectedLayouts) { layout in
+                ForEach(model.selectedItems) { item in
                     HStack {
-                        Image(systemName: "keyboard")
+                        Image(systemName: item.kind.sfSymbol)
                         VStack(alignment: .leading) {
-                            Text(layout.displayName)
-                            Text(layout.fileURL.path)
+                            Text(item.displayName)
+                            Text(item.fileURL.path)
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                                 .lineLimit(1)
@@ -127,7 +140,7 @@ struct ExportView: View {
                     Spacer()
                 }
 
-                Text("Tip: drag any selected file out of the list into Slack, Mail, or Finder.")
+                Text("Tip: drag any selected item out of the list into Slack, Mail, or Finder.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
 

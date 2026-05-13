@@ -21,11 +21,26 @@ final class ExportViewModel {
     }
 
     var allLayouts: [KeyboardLayout] {
-        (try? scanner.scanLayouts()) ?? []
+        (try? scanner.scanItems(of: .kys)) ?? []
     }
 
-    var selectedLayouts: [KeyboardLayout] {
-        allLayouts.filter { selection.contains($0.fileURL) }
+    var allPresets: [KeyboardLayout] {
+        (try? scanner.scanItems(of: .sourcePatcher)) ?? []
+    }
+
+    var allItems: [KeyboardLayout] { allLayouts + allPresets }
+
+    var selectedItems: [KeyboardLayout] {
+        allItems.filter { selection.contains($0.fileURL) }
+    }
+
+    func items(for profile: ProfileLocation, kind: PremiereItemKind) -> [KeyboardLayout] {
+        let pool: [KeyboardLayout]
+        switch kind {
+        case .kys: pool = allLayouts
+        case .sourcePatcher: pool = allPresets
+        }
+        return pool.filter { $0.origin.id == profile.id }
     }
 
     func refresh() {
@@ -34,49 +49,56 @@ final class ExportViewModel {
         dropboxURL = CloudTargets.dropbox()
     }
 
-    func stagedURL(for layout: KeyboardLayout) -> URL {
-        (try? stage.stage(layout.fileURL)) ?? layout.fileURL
+    func stagedURL(for item: KeyboardLayout) -> URL {
+        (try? stage.stage(item.fileURL)) ?? item.fileURL
     }
 
     func exportToFolder() async {
-        guard !selectedLayouts.isEmpty else { return }
+        guard !selectedItems.isEmpty else { return }
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.allowsMultipleSelection = false
         panel.prompt = "Export"
-        panel.message = "Choose a folder to copy the selected keyboard layouts to."
+        panel.message = "Choose a folder to copy the selected items to."
         guard panel.runModal() == .OK, let dest = panel.url else { return }
-        await copyAll(into: dest, policyForFirst: .prompt)
+        let pairs = selectedItems.map { ($0.fileURL, dest) }
+        await copyPairs(pairs, contextLabel: dest.path)
     }
 
     func backupToICloud() async {
         guard let root = iCloudURL, let version = primaryVersion() else { return }
         let dest = CloudTargets.backupDirectory(root: root, version: version)
-        await copyAll(into: dest, policyForFirst: .prompt)
+        let pairs = selectedItems.map { ($0.fileURL, dest) }
+        await copyPairs(pairs, contextLabel: dest.path)
     }
 
     func backupToDropbox() async {
         guard let root = dropboxURL, let version = primaryVersion() else { return }
         let dest = CloudTargets.backupDirectory(root: root, version: version)
-        await copyAll(into: dest, policyForFirst: .prompt)
+        let pairs = selectedItems.map { ($0.fileURL, dest) }
+        await copyPairs(pairs, contextLabel: dest.path)
     }
 
     private func primaryVersion() -> String? {
-        selectedLayouts.first?.origin.version
+        selectedItems.first?.origin.version
     }
 
     private var applyToAllPolicy: CollisionPolicy?
 
     func dropOnProfile(urls: [URL], profile: ProfileLocation) async {
-        let kys = urls.filter { $0.pathExtension.lowercased() == "kys" }
-        guard !kys.isEmpty else { return }
-        await copyURLs(kys, into: profile.macDirURL, contextLabel: profile.displayName)
+        var pairs: [(URL, URL)] = []
+        for url in urls {
+            guard let kind = PremiereItemKind.kind(forFileExtension: url.pathExtension) else { continue }
+            pairs.append((url, profile.directoryURL(for: kind)))
+        }
+        guard !pairs.isEmpty else { return }
+        await copyPairs(pairs, contextLabel: profile.displayName)
         refresh()
     }
 
     func deleteProfile(_ profile: ProfileLocation) async {
-        let profileDir = profile.macDirURL.deletingLastPathComponent()
+        let profileDir = profile.profileRootURL
 
         let alert = NSAlert()
         alert.messageText = "Delete profile \"\(profile.profileName)\"?"
@@ -98,17 +120,13 @@ final class ExportViewModel {
         }
     }
 
-    private func copyAll(into dest: URL, policyForFirst: CollisionPolicy) async {
-        await copyURLs(selectedLayouts.map(\.fileURL), into: dest, contextLabel: dest.path)
-    }
-
-    private func copyURLs(_ urls: [URL], into dest: URL, contextLabel: String) async {
+    private func copyPairs(_ pairs: [(source: URL, destination: URL)], contextLabel: String) async {
         applyToAllPolicy = nil
         var copied = 0, renamed = 0, skipped = 0
-        for url in urls {
+        for (source, destination) in pairs {
             let policy: CollisionPolicy = applyToAllPolicy ?? .prompt
             do {
-                let outcome = try await copier.copy(url, into: dest, policy: policy) { [weak self] target in
+                let outcome = try await copier.copy(source, into: destination, policy: policy) { [weak self] target in
                     guard let self else { return .skip }
                     let result = await self.promptCollision(targetURL: target)
                     if result.applyToAll { await self.setApplyToAll(result.policy) }
@@ -120,7 +138,7 @@ final class ExportViewModel {
                 case .skipped: skipped += 1
                 }
             } catch {
-                errorMessage = "\(url.lastPathComponent): \(error.localizedDescription)"
+                errorMessage = "\(source.lastPathComponent): \(error.localizedDescription)"
             }
         }
         statusMessage = summary(copied: copied, renamed: renamed, skipped: skipped, label: contextLabel)

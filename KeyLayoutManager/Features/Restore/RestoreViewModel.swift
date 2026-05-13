@@ -30,10 +30,14 @@ final class RestoreViewModel {
         dropboxURL = CloudTargets.dropbox()
     }
 
+    func kind(of url: URL) -> PremiereItemKind? {
+        PremiereItemKind.kind(forFileExtension: url.pathExtension)
+    }
+
     func add(urls: [URL]) {
-        let kys = urls.filter { $0.pathExtension.lowercased() == "kys" }
+        let supported = urls.filter { kind(of: $0) != nil }
         var unique = incomingFiles
-        for url in kys where !unique.contains(url) {
+        for url in supported where !unique.contains(url) {
             unique.append(url)
         }
         incomingFiles = unique
@@ -50,7 +54,7 @@ final class RestoreViewModel {
     }
 
     func chooseFiles() {
-        runChooser(startingAt: nil, message: "Choose .kys keyboard layout files to restore.")
+        runChooser(startingAt: nil, message: "Choose .kys or .sppreset files to restore.")
     }
 
     func chooseFromICloud() {
@@ -58,7 +62,7 @@ final class RestoreViewModel {
         let backupRoot = root.appendingPathComponent(CloudTargets.backupSubfolder, isDirectory: true)
         let startURL = FileManager.default.fileExists(atPath: backupRoot.path) ? backupRoot : root
         runChooser(startingAt: startURL,
-                   message: "Pick .kys backups from iCloud Drive.")
+                   message: "Pick .kys or .sppreset backups from iCloud Drive.")
     }
 
     func chooseFromDropbox() {
@@ -66,7 +70,7 @@ final class RestoreViewModel {
         let backupRoot = root.appendingPathComponent(CloudTargets.backupSubfolder, isDirectory: true)
         let startURL = FileManager.default.fileExists(atPath: backupRoot.path) ? backupRoot : root
         runChooser(startingAt: startURL,
-                   message: "Pick .kys backups from Dropbox.")
+                   message: "Pick .kys or .sppreset backups from Dropbox.")
     }
 
     private func runChooser(startingAt directoryURL: URL?, message: String) {
@@ -74,8 +78,9 @@ final class RestoreViewModel {
         panel.allowsMultipleSelection = true
         panel.canChooseDirectories = false
         panel.canChooseFiles = true
-        if let kysType = UTType(filenameExtension: "kys") {
-            panel.allowedContentTypes = [kysType]
+        let types = PremiereItemKind.allCases.compactMap { UTType(filenameExtension: $0.fileExtension) }
+        if !types.isEmpty {
+            panel.allowedContentTypes = types
         }
         if let directoryURL { panel.directoryURL = directoryURL }
         panel.prompt = "Add"
@@ -95,29 +100,53 @@ final class RestoreViewModel {
         errorMessage = nil
 
         applyToAllPolicy = nil
-        var copied = 0, renamed = 0, skipped = 0
+        var copied: [PremiereItemKind: Int] = [:]
+        var renamed: [PremiereItemKind: Int] = [:]
+        var skipped: [PremiereItemKind: Int] = [:]
 
         for source in incomingFiles {
+            guard let kind = kind(of: source) else { continue }
+            let destinationDir = dest.directoryURL(for: kind)
             let policy: CollisionPolicy = applyToAllPolicy ?? .prompt
             do {
-                let outcome = try await copier.copy(source, into: dest.macDirURL, policy: policy) { [weak self] target in
+                let outcome = try await copier.copy(source, into: destinationDir, policy: policy) { [weak self] target in
                     guard let self else { return .skip }
                     let result = await self.promptCollision(targetURL: target)
                     if result.applyToAll { await self.setApplyToAll(result.policy) }
                     return result.policy
                 }
                 switch outcome {
-                case .copied: copied += 1
-                case .renamed: renamed += 1
-                case .skipped: skipped += 1
+                case .copied: copied[kind, default: 0] += 1
+                case .renamed: renamed[kind, default: 0] += 1
+                case .skipped: skipped[kind, default: 0] += 1
                 }
             } catch {
                 errorMessage = "\(source.lastPathComponent): \(error.localizedDescription)"
             }
         }
 
-        statusMessage = "Restored to \(dest.displayName): \(copied) copied, \(renamed) renamed, \(skipped) skipped."
+        statusMessage = restoreSummary(dest: dest, copied: copied, renamed: renamed, skipped: skipped)
         incomingFiles.removeAll()
+    }
+
+    private func restoreSummary(dest: ProfileLocation,
+                                copied: [PremiereItemKind: Int],
+                                renamed: [PremiereItemKind: Int],
+                                skipped: [PremiereItemKind: Int]) -> String {
+        let kindsTouched = Set(copied.keys).union(renamed.keys).union(skipped.keys)
+        let perKind: [String] = PremiereItemKind.allCases.compactMap { kind in
+            guard kindsTouched.contains(kind) else { return nil }
+            let c = copied[kind, default: 0]
+            let r = renamed[kind, default: 0]
+            let s = skipped[kind, default: 0]
+            var parts: [String] = []
+            if c > 0 { parts.append("\(c) copied") }
+            if r > 0 { parts.append("\(r) renamed") }
+            if s > 0 { parts.append("\(s) skipped") }
+            return "\(kind.displayName): \(parts.joined(separator: ", "))"
+        }
+        let summary = perKind.isEmpty ? "Nothing to do" : perKind.joined(separator: " · ")
+        return "\(summary) → \(dest.displayName)"
     }
 
     private var applyToAllPolicy: CollisionPolicy?

@@ -6,7 +6,7 @@ struct DraggableKysRow: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            Image(systemName: "keyboard")
+            Image(systemName: layout.kind.sfSymbol)
                 .foregroundStyle(.secondary)
             VStack(alignment: .leading, spacing: 2) {
                 Text(layout.displayName)
@@ -24,7 +24,7 @@ struct DraggableKysRow: View {
         .contentShape(Rectangle())
         .draggable(stagedURL) {
             HStack {
-                Image(systemName: "keyboard")
+                Image(systemName: layout.kind.sfSymbol)
                 Text(layout.fileURL.lastPathComponent)
             }
             .padding(6)
