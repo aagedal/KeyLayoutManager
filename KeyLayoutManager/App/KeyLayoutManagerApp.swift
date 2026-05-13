@@ -4,6 +4,7 @@ import AppKit
 @main
 struct KeyLayoutManagerApp: App {
     init() {
+        _ = SparkleUpdater.shared
         NotificationCenter.default.addObserver(
             forName: NSApplication.willTerminateNotification,
             object: nil,
@@ -19,5 +20,12 @@ struct KeyLayoutManagerApp: App {
                 .frame(minWidth: 720, minHeight: 480)
         }
         .windowResizability(.contentSize)
+        .commands {
+            CommandGroup(after: .appInfo) {
+                Button("Check for Updates…") {
+                    SparkleUpdater.shared.controller.checkForUpdates(nil)
+                }
+            }
+        }
     }
 }

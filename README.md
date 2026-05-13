@@ -110,8 +110,43 @@ version sort, non-version sibling dirs) and `CopyService` policies
 
 ## Distribution
 
-Non-sandboxed, hardened runtime, empty entitlements file. After Archive
-→ Distribute App → Developer ID → Export:
+Non-sandboxed, hardened runtime, empty entitlements file. Sparkle 2 is
+wired up — `appcast.xml` lives at the repo root, signed `.zip` releases
+are hosted on
+[Codeberg Releases](https://codeberg.org/taagedal/KeyLayoutManager/releases),
+and existing installs see "Check for Updates…" under the app menu.
+
+### Releasing
+
+One-time setup:
+
+```bash
+# notarytool credentials (re-uses the "Notary" profile referenced below)
+xcrun notarytool store-credentials Notary \
+  --apple-id <appleid> --team-id <teamid> --password <app-specific-pw>
+
+# Codeberg API token for auto-uploading the .zip to a release
+export CODEBERG_TOKEN=<token>
+```
+
+Then for each release, bump `MARKETING_VERSION` / `CURRENT_PROJECT_VERSION`
+in `project.yml`, regenerate the project, and run:
+
+```bash
+./release-build.sh                 # version read from project.yml
+./release-build.sh 0.2.0 2         # or override version + build
+```
+
+The script archives, exports, notarizes, staples, zips (with AppleDouble
+metadata stripped so Gatekeeper doesn't reject the bundle), signs the
+zip with Sparkle's EdDSA key, creates a Codeberg release, uploads the
+zip, and appends a new `<item>` to `appcast.xml`. Commit and push
+`appcast.xml` to publish the update to existing installs.
+
+The Sparkle EdDSA private key is shared with Aagedal Media Converter
+(single keychain entry); `bin/sign_update` is Sparkle's signing helper.
+
+If you need to notarize a one-off build by hand instead:
 
 ```bash
 xcrun notarytool submit KeyLayoutManager.zip \

@@ -28,5 +28,13 @@
 	<string>Key Layout Manager needs access to your Documents folder to read and write Adobe Premiere Pro keyboard layout files.</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>© 2026 Truls Aagedal</string>
+	<key>SUAutomaticallyUpdate</key>
+	<true/>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUFeedURL</key>
+	<string>https://codeberg.org/taagedal/KeyLayoutManager/raw/branch/main/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>i3xudeqe+09I7n+FVFHmPxBa8cEWc3/ljLk3Y9bTEkY=</string>
 </dict>
 </plist>
