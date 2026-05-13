@@ -20,7 +20,7 @@ final class PremiereScannerTests: XCTestCase {
         try makeKys(version: "25.0", profile: "bob",   filename: "Bob.kys",   bytes: 50)
         try fm.createDirectory(at: premiere().appendingPathComponent("Cloud Media", isDirectory: true), withIntermediateDirectories: true)
         try fm.createDirectory(at: premiere().appendingPathComponent("Adobe Premiere Pro Auto-Save", isDirectory: true), withIntermediateDirectories: true)
-        Data("junk".utf8).write(to: premiere().appendingPathComponent(".DS_Store"), atomically: true)
+        try Data("junk".utf8).write(to: premiere().appendingPathComponent(".DS_Store"))
 
         let scanner = PremiereScanner(documentsRoot: tmpRoot)
         let installs = try scanner.scan()
