@@ -157,8 +157,9 @@ file-description coverage.
 Non-sandboxed, hardened runtime, empty entitlements file. Sparkle 2 is
 wired up — `appcast.xml` lives at the repo root, signed `.zip` releases
 are hosted on
-[Codeberg Releases](https://codeberg.org/taagedal/KeyLayoutManager/releases),
-and existing installs see "Check for Updates…" under the app menu.
+[GitHub Releases](https://github.com/aagedal/KeyLayoutManager/releases),
+and existing installs see "Check for Updates…" under the app menu. Codeberg
+keeps a synchronized legacy appcast for builds released before the feed moved.
 
 ### Releasing
 
@@ -169,8 +170,8 @@ One-time setup:
 xcrun notarytool store-credentials Notary \
   --apple-id <appleid> --team-id <teamid> --password <app-specific-pw>
 
-# Codeberg API token for auto-uploading the .zip to a release
-export CODEBERG_TOKEN=<token>
+# Authenticate the GitHub CLI for release uploads
+gh auth login
 ```
 
 Then for each release, bump `MARKETING_VERSION` / `CURRENT_PROJECT_VERSION`
@@ -183,9 +184,10 @@ in `project.yml`, regenerate the project, and run:
 
 The script archives, exports, notarizes, staples, zips (with AppleDouble
 metadata stripped so Gatekeeper doesn't reject the bundle), signs the
-zip with Sparkle's EdDSA key, creates a Codeberg release, uploads the
+zip with Sparkle's EdDSA key, creates a GitHub release, uploads the
 zip, and appends a new `<item>` to `appcast.xml`. Commit and push
-`appcast.xml` to publish the update to existing installs.
+`appcast.xml` to GitHub, then synchronize the legacy Codeberg copy for
+older installed builds.
 
 The Sparkle EdDSA private key is shared with Aagedal Media Converter
 (single keychain entry); `bin/sign_update` is Sparkle's signing helper.

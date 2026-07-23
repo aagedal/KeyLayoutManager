@@ -2,8 +2,23 @@
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
     <channel>
         <title>KeyLayoutManager</title>
-        <link>https://codeberg.org/taagedal/KeyLayoutManager</link>
+        <link>https://github.com/aagedal/KeyLayoutManager</link>
         <description>Most recent changes for KeyLayoutManager.</description>
         <language>en</language>
+        <item>
+            <title>Version 1.0</title>
+            <pubDate>Wed, 13 May 2026 21:21:18 +0200</pubDate>
+            <sparkle:version>1</sparkle:version>
+            <sparkle:shortVersionString>1.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure
+                url="https://github.com/aagedal/KeyLayoutManager/releases/download/1.0.0/KeyLayoutManager_1-0.zip"
+                length="2676313"
+                type="application/octet-stream"
+                sparkle:edSignature="CDMdB1r2x5F2T05FAbcA26gMsZXqS/vqqVTgSWLecj+3KBtXBNb5mRYFxpiD9LDr/o5AwKkQXpaI6IEmLwmRBA==" />
+            <description><![CDATA[
+                <p>See <a href="https://github.com/aagedal/KeyLayoutManager/releases/tag/1.0.0">release notes</a>.</p>
+            ]]></description>
+        </item>
     </channel>
 </rss>

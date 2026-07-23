@@ -57,7 +57,7 @@ targets:
         NSHumanReadableCopyright: "© 2026 Truls Aagedal"
         LSApplicationCategoryType: public.app-category.utilities
         NSDocumentsFolderUsageDescription: "Key Layout Manager needs access to your Documents folder to read and write Adobe Premiere Pro keyboard layout files."
-        SUFeedURL: "https://codeberg.org/taagedal/KeyLayoutManager/raw/branch/main/appcast.xml"
+        SUFeedURL: "https://raw.githubusercontent.com/aagedal/KeyLayoutManager/main/appcast.xml"
         SUPublicEDKey: "i3xudeqe+09I7n+FVFHmPxBa8cEWc3/ljLk3Y9bTEkY="
         SUEnableAutomaticChecks: true
         SUAutomaticallyUpdate: true

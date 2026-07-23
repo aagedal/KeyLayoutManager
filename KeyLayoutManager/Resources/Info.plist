@@ -33,7 +33,7 @@
 	<key>SUEnableAutomaticChecks</key>
 	<true/>
 	<key>SUFeedURL</key>
-	<string>https://codeberg.org/taagedal/KeyLayoutManager/raw/branch/main/appcast.xml</string>
+	<string>https://raw.githubusercontent.com/aagedal/KeyLayoutManager/main/appcast.xml</string>
 	<key>SUPublicEDKey</key>
 	<string>i3xudeqe+09I7n+FVFHmPxBa8cEWc3/ljLk3Y9bTEkY=</string>
 </dict>

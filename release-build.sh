@@ -16,8 +16,8 @@
 #      Set up once with:
 #        xcrun notarytool store-credentials Notary \
 #          --apple-id <appleid> --team-id <teamid> --password <app-specific-pw>
-#   4. Codeberg API token in $CODEBERG_TOKEN (or the script will skip the
-#      upload step and just print the curl command for you to run manually).
+#   4. GitHub CLI (`gh`) installed and authenticated (or the script will skip
+#      the upload step and print manual release instructions).
 #
 # Usage:
 #   ./release-build.sh                 # uses MARKETING_VERSION from the project
@@ -54,8 +54,7 @@ fi
 # -----------------------------------------------------------------------------
 NOTARYTOOL_PROFILE="${NOTARYTOOL_PROFILE:-Notary}"
 SIGN_UPDATE_BIN="${SIGN_UPDATE_BIN:-./bin/sign_update}"
-CODEBERG_OWNER="taagedal"
-CODEBERG_REPO="KeyLayoutManager"
+GITHUB_REPOSITORY="aagedal/KeyLayoutManager"
 APPCAST="appcast.xml"
 
 PROJECT="KeyLayoutManager.xcodeproj"
@@ -173,29 +172,27 @@ echo "==> Sparkle signature: $ED_SIGNATURE_LINE"
 ED_SIGNATURE=$(echo "$ED_SIGNATURE_LINE" | sed -n 's/.*sparkle:edSignature="\([^"]*\)".*/\1/p')
 
 # -----------------------------------------------------------------------------
-# Upload to Codeberg release
+# Upload to GitHub release
 # -----------------------------------------------------------------------------
-DOWNLOAD_URL="https://codeberg.org/$CODEBERG_OWNER/$CODEBERG_REPO/releases/download/$MARKETING_VERSION/$RELEASE_ZIP_NAME"
+DOWNLOAD_URL="https://github.com/$GITHUB_REPOSITORY/releases/download/$MARKETING_VERSION/$RELEASE_ZIP_NAME"
 
-if [[ -n "${CODEBERG_TOKEN:-}" ]]; then
-    echo "==> Creating Codeberg release $MARKETING_VERSION"
-    RELEASE_ID=$(curl -fsS -X POST \
-        -H "Authorization: token $CODEBERG_TOKEN" \
-        -H "Content-Type: application/json" \
-        "https://codeberg.org/api/v1/repos/$CODEBERG_OWNER/$CODEBERG_REPO/releases" \
-        -d "{\"tag_name\":\"$MARKETING_VERSION\",\"name\":\"$MARKETING_VERSION\",\"draft\":false,\"prerelease\":false}" \
-        | python3 -c 'import json,sys;print(json.load(sys.stdin)["id"])')
-
-    echo "==> Uploading $RELEASE_ZIP_NAME to release $RELEASE_ID"
-    curl -fsS -X POST \
-        -H "Authorization: token $CODEBERG_TOKEN" \
-        -H "Content-Type: multipart/form-data" \
-        -F "attachment=@$RELEASE_ZIP" \
-        "https://codeberg.org/api/v1/repos/$CODEBERG_OWNER/$CODEBERG_REPO/releases/$RELEASE_ID/assets?name=$RELEASE_ZIP_NAME"
-    echo
+if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+    if gh release view "$MARKETING_VERSION" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+        echo "==> Uploading $RELEASE_ZIP_NAME to existing GitHub release $MARKETING_VERSION"
+        gh release upload "$MARKETING_VERSION" "$RELEASE_ZIP" \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber
+    else
+        echo "==> Creating GitHub release $MARKETING_VERSION"
+        gh release create "$MARKETING_VERSION" "$RELEASE_ZIP" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target main \
+            --title "$MARKETING_VERSION" \
+            --generate-notes
+    fi
 else
-    echo "==> CODEBERG_TOKEN not set — skipping upload. To upload manually:"
-    echo "    1. Create release $MARKETING_VERSION at https://codeberg.org/$CODEBERG_OWNER/$CODEBERG_REPO/releases/new"
+    echo "==> GitHub CLI is unavailable or unauthenticated — skipping upload."
+    echo "    1. Create release $MARKETING_VERSION at https://github.com/$GITHUB_REPOSITORY/releases/new"
     echo "    2. Attach $RELEASE_ZIP"
 fi
 
@@ -203,7 +200,7 @@ fi
 # Append appcast.xml entry
 # -----------------------------------------------------------------------------
 PUB_DATE=$(date "+%a, %d %b %Y %H:%M:%S %z")
-RELEASE_NOTES_HTML="                <p>See <a href=\"https://codeberg.org/$CODEBERG_OWNER/$CODEBERG_REPO/releases/tag/$MARKETING_VERSION\">release notes</a>.</p>"
+RELEASE_NOTES_HTML="                <p>See <a href=\"https://github.com/$GITHUB_REPOSITORY/releases/tag/$MARKETING_VERSION\">release notes</a>.</p>"
 
 NEW_ITEM=$(cat <<EOF
         <item>
