@@ -15,6 +15,52 @@ final class ZipServiceTests: XCTestCase {
         try? fm.removeItem(at: tmpRoot)
     }
 
+    func testLargeArchiveListingCompletes() async throws {
+        let source = tmpRoot.appendingPathComponent("large")
+        try fm.createDirectory(at: source, withIntermediateDirectories: true)
+        for n in 0..<3000 {
+            try Data().write(to: source.appendingPathComponent("layout-\(n).kys"))
+        }
+        let archive = tmpRoot.appendingPathComponent("large.zip")
+        let service = ZipService()
+        try await service.createZip(contents: source,
+            manifest: BackupManifest(appVersion: "test", sourceVersion: "26.0", sourceProfileName: "test"), to: archive)
+        let completed = expectation(description: "Large archive listing")
+        let task = Task {
+            do {
+                let entries = try await service.listEntries(zip: archive)
+                XCTAssertEqual(entries.filter { !$0.isDirectory }.count, 3001)
+            } catch { XCTFail("\(error)") }
+            completed.fulfill()
+        }
+        await fulfillment(of: [completed], timeout: 10)
+        task.cancel()
+    }
+
+    func testFailedBackupPreservesExistingArchive() async throws {
+        let archive = tmpRoot.appendingPathComponent("existing.zip")
+        try Data("original backup".utf8).write(to: archive)
+        do {
+            try await ZipService().createZip(contents: tmpRoot.appendingPathComponent("missing"),
+                manifest: BackupManifest(appVersion: "test", sourceVersion: "26.0", sourceProfileName: "test"), to: archive)
+            XCTFail("Missing profile should fail")
+        } catch {}
+        XCTAssertEqual(try String(contentsOf: archive), "original backup")
+    }
+
+    func testSuccessfulBackupReplacesExistingArchive() async throws {
+        let source = tmpRoot.appendingPathComponent("profile")
+        try fm.createDirectory(at: source, withIntermediateDirectories: true)
+        try Data("new".utf8).write(to: source.appendingPathComponent("new.kys"))
+        let archive = tmpRoot.appendingPathComponent("existing.zip")
+        try Data("old".utf8).write(to: archive)
+        let service = ZipService()
+        try await service.createZip(contents: source,
+            manifest: BackupManifest(appVersion: "test", sourceVersion: "26.0", sourceProfileName: "test"), to: archive)
+        let entries = try await service.listEntries(zip: archive)
+        XCTAssertTrue(entries.contains { $0.path == "new.kys" })
+    }
+
     func testCreateListExtractRoundTrip() async throws {
         let profileRoot = tmpRoot.appendingPathComponent("Profile-test", isDirectory: true)
         let macDir = profileRoot.appendingPathComponent("Mac", isDirectory: true)

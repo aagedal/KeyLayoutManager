@@ -96,6 +96,25 @@ final class CopyServiceTests: XCTestCase {
         XCTAssertTrue(fm.fileExists(atPath: dest.appendingPathComponent("file.kys").path))
     }
 
+    func testOverwriteSameFilePreservesSource() async throws {
+        let (source, _) = try makeSourceAndDest(contents: "original")
+        let outcome = try await CopyService().copy(source, into: source.deletingLastPathComponent(), policy: .overwrite)
+        XCTAssertEqual(outcome, .skipped(source))
+        XCTAssertEqual(try String(contentsOf: source), "original")
+    }
+
+    func testFailedOverwritePreservesDestination() async throws {
+        let (source, dest) = try makeSourceAndDest(contents: "new")
+        let target = dest.appendingPathComponent(source.lastPathComponent)
+        try Data("old".utf8).write(to: target)
+        try fm.removeItem(at: source)
+        do {
+            _ = try await CopyService().copy(source, into: dest, policy: .overwrite)
+            XCTFail("Missing source should fail")
+        } catch {}
+        XCTAssertEqual(try String(contentsOf: target), "old")
+    }
+
     // MARK: - helpers
 
     private func makeSourceAndDest(contents: String) throws -> (URL, URL) {

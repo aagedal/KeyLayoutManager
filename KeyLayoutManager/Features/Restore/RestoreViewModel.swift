@@ -6,6 +6,7 @@ import UniformTypeIdentifiers
 @MainActor
 @Observable
 final class RestoreViewModel {
+    var isRestoring = false
     var incomingItems: [IncomingItem] = []
     var loadedBackupManifest: BackupManifest?
     var loadedBackupSourceLabel: String?
@@ -198,12 +199,15 @@ final class RestoreViewModel {
     }
 
     func performRestore() async {
+        guard !isRestoring else { return }
         let selected = incomingItems.filter(\.isSelected)
         guard !selected.isEmpty else { return }
         guard let dest = selectedDestination else {
             errorMessage = "Pick a destination profile."
             return
         }
+        isRestoring = true
+        defer { isRestoring = false }
         statusMessage = nil
         errorMessage = nil
         applyToAllPolicy = nil
@@ -243,6 +247,8 @@ final class RestoreViewModel {
             }
         }
 
+        var completedIDs: Set<UUID> = []
+        var failures: [String] = []
         var copied = 0
         var renamed = 0
         var skipped = 0
@@ -276,17 +282,18 @@ final class RestoreViewModel {
                     return result.policy
                 }
                 switch outcome {
-                case .copied: copied += 1
-                case .renamed: renamed += 1
+                case .copied: copied += 1; completedIDs.insert(item.id)
+                case .renamed: renamed += 1; completedIDs.insert(item.id)
                 case .skipped: skipped += 1
                 }
             } catch {
-                errorMessage = "\(item.displayName): \(error.localizedDescription)"
+                failures.append("\(item.displayName): \(error.localizedDescription)")
             }
         }
 
         statusMessage = summary(copied: copied, renamed: renamed, skipped: skipped, dest: dest)
-        clear()
+        for id in completedIDs { remove(id: id) }
+        errorMessage = failures.isEmpty ? nil : failures.joined(separator: "\n")
     }
 
     private func summary(copied: Int, renamed: Int, skipped: Int, dest: ProfileLocation) -> String {
