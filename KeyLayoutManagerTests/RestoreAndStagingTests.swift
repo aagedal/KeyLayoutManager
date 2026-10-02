@@ -2,6 +2,39 @@ import XCTest
 @testable import KeyLayoutManager
 
 final class RestoreAndStagingTests: XCTestCase {
+    @MainActor
+    func testWorkspaceDiscoveryAndLooseRestore() async throws {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? fm.removeItem(at: root) }
+        let profile = root.appendingPathComponent("Adobe/Premiere Pro/26.0/Profile-test")
+        let layouts = profile.appendingPathComponent("Layouts")
+        try fm.createDirectory(at: layouts, withIntermediateDirectories: true)
+        let workspace = layouts.appendingPathComponent("UserWorkspace.xml")
+        let xml = "<?xml version='1.0'?><prop.map><prop.list><prop.pair><key>DVA_Wrkspce</key><string>1.2</string></prop.pair></prop.list></prop.map>"
+        try Data(xml.utf8).write(to: workspace)
+        let config = layouts.appendingPathComponent("WorkspaceConfig.xml")
+        try Data("<prop.map><key>BuiltInKeys</key></prop.map>".utf8).write(to: config)
+        let malformed = layouts.appendingPathComponent("Broken.xml")
+        try Data("<prop.map><key>DVA_Wrkspce</key>".utf8).write(to: malformed)
+        let scanner = PremiereScanner(documentsRoot: root)
+        XCTAssertEqual(try scanner.scanItems(of: .workspace).map { $0.fileURL.resolvingSymlinksInPath() }, [workspace.resolvingSymlinksInPath()])
+        XCTAssertNil(PremiereItemKind.kind(forFile: config))
+        XCTAssertNil(PremiereItemKind.kind(forFile: malformed))
+
+        // A renamed export must still be recognized by its contents.
+        let exported = root.appendingPathComponent("My panels.XML")
+        try fm.copyItem(at: workspace, to: exported)
+        let model = RestoreViewModel(scanner: scanner)
+        let destination = root.appendingPathComponent("destination")
+        model.selectedDestination = ProfileLocation(version: "26.0", profileName: "dest", profileRootURL: destination)
+        await model.add(urls: [exported])
+        XCTAssertEqual(model.incomingItems.first?.relativePath, "Layouts/My panels.XML")
+        await model.performRestore()
+        XCTAssertEqual(try String(contentsOf: destination.appendingPathComponent("Layouts/My panels.XML")), xml)
+        XCTAssertTrue(model.incomingItems.isEmpty)
+    }
+
     func testSameNamedSourcesRemainDistinct() throws {
         let fm = FileManager.default
         let root = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString)

@@ -91,7 +91,7 @@ struct PremiereScanner {
                                                    includingPropertiesForKeys: [.fileSizeKey, .contentModificationDateKey],
                                                    options: [.skipsHiddenFiles])) ?? []
         return entries.compactMap { url -> KeyboardLayout? in
-            guard url.pathExtension.lowercased() == kind.fileExtension else { return nil }
+            guard PremiereItemKind.kind(forFile: url) == kind else { return nil }
             let values = try? url.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey])
             let size = Int64(values?.fileSize ?? 0)
             let modified = values?.contentModificationDate ?? .distantPast

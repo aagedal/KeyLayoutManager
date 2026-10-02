@@ -49,14 +49,16 @@ struct ExportView: View {
     private func profileSection(_ profile: ProfileLocation) -> some View {
         let layouts = model.items(for: profile, kind: .kys)
         let presets = model.items(for: profile, kind: .sourcePatcher)
+        let workspaces = model.items(for: profile, kind: .workspace)
         DisclosureGroup {
-            if layouts.isEmpty && presets.isEmpty {
-                Text("(no items — drop .kys or .sppreset files here to copy in)")
+            if layouts.isEmpty && presets.isEmpty && workspaces.isEmpty {
+                Text("(no items — drop .kys, .sppreset, or panel layout .xml files here to copy in)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else {
                 kindSubsection(title: "Keyboard Layouts", items: layouts)
                 kindSubsection(title: "Source Assignment Presets", items: presets)
+                kindSubsection(title: "Panel Layouts", items: workspaces)
             }
         } label: {
             ProfileDropLabel(profile: profile) { urls in
@@ -99,7 +101,7 @@ struct ExportView: View {
                 ContentUnavailableView(
                     "Select items to export",
                     systemImage: "hand.point.up.left",
-                    description: Text("Pick keyboard layouts or source assignment presets on the left, then drag them out or export below.")
+                    description: Text("Pick keyboard layouts, source assignment presets, or panel layouts on the left, then drag them out or export below.")
                 )
             } else {
                 Text("Selected (\(model.selectedItems.count))")

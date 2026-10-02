@@ -5,7 +5,7 @@
 </p>
 
 Small native macOS utility for managing Adobe Premiere keyboard layouts,
-source assignment presets, and full-profile backups. SwiftUI,
+source assignment presets, panel layouts, and full-profile backups. SwiftUI,
 non-sandboxed, Developer ID signed for distribution.
 
 Premiere stores per-user data at:
@@ -14,17 +14,18 @@ Premiere stores per-user data at:
 ~/Documents/Adobe/Premiere Pro/<version>/Profile-<username>/
     Mac/<name>.kys                                 # keyboard shortcut layouts
     Settings/Source Patcher Presets/<name>.sppreset  # source assignment presets
-    …everything else (workspaces, panel layouts, prefs, …)
+    Layouts/UserWorkspace*.xml                     # saved panel layouts
+    …everything else (prefs, …)
 ```
 
 Moving any of that between Macs in Finder means hunting through nested
 Adobe folders. This app collapses it to one window:
 
-- **Export** — browse every `.kys` and `.sppreset` Premiere has on the
+- **Export** — browse every `.kys`, `.sppreset`, and panel layout `.xml` Premiere has on the
   local machine, multi-select, drag straight into Slack / Mail / Finder
   or export to a folder, iCloud Drive, or Dropbox. Right-click a profile
   to back up the *entire* `Profile-<user>` folder as a standalone `.zip`.
-- **Restore** — drop loose `.kys` / `.sppreset` files (or a backup
+- **Restore** — drop loose `.kys` / `.sppreset` / panel layout `.xml` files (or a backup
   `.zip`) onto the window, or pick via the file panel. Backup zips
   expand into a grouped, per-entry checklist so a "restore only the
   keyboard layout" workflow stays one click away. Pick a destination
@@ -32,6 +33,15 @@ Adobe folders. This app collapses it to one window:
   Standard collision prompt (Overwrite / Keep both / Skip, plus "Apply
   to all remaining") covers any conflicts. Hover any incoming row to
   see a tooltip describing what that file does.
+
+Panel layouts appear in their own **Panel Layouts** subsection. XML imports
+are checked for Premiere's workspace marker; unrelated XML and
+`WorkspaceConfig.xml` are excluded from individual layout transfers. Save the
+arrangement in Premiere with **Window > Workspaces > Save as New Workspace**
+before exporting. Quit Premiere before restoring, then relaunch it and select
+the workspace from **Window > Workspaces**. Layouts can depend on the Premiere
+version and monitor arrangement; those should be checked on the receiving Mac.
+Full-profile backups still include workspace configuration as well.
 
 The version label adapts: Premiere 26 and later show as "Premiere
 \<version\>", earlier versions as "Premiere Pro \<version\>" — Adobe

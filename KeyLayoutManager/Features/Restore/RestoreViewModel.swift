@@ -36,7 +36,7 @@ final class RestoreViewModel {
     }
 
     func kind(of url: URL) -> PremiereItemKind? {
-        PremiereItemKind.kind(forFileExtension: url.pathExtension)
+        PremiereItemKind.kind(forFile: url)
     }
 
     var selectedCount: Int {
@@ -69,7 +69,10 @@ final class RestoreViewModel {
             await loadZip(url)
             return
         }
-        guard let kind = PremiereItemKind.kind(forFileExtension: ext) else { return }
+        guard let kind = PremiereItemKind.kind(forFile: url) else {
+            errorMessage = "Unsupported file: \(url.lastPathComponent). Choose a keyboard layout, source assignment preset, or Premiere panel layout XML."
+            return
+        }
         let item = IncomingItem.looseFile(url: url, kind: kind)
         if !incomingItems.contains(where: { sameSource($0, item) }) {
             incomingItems.append(item)
@@ -158,7 +161,7 @@ final class RestoreViewModel {
     }
 
     func chooseFiles() {
-        runChooser(startingAt: nil, message: "Choose .kys / .sppreset files or a backup .zip to restore.")
+        runChooser(startingAt: nil, message: "Choose .kys / .sppreset / panel layout .xml files or a backup .zip to restore.")
     }
 
     func chooseFromICloud() {
@@ -166,7 +169,7 @@ final class RestoreViewModel {
         let backupRoot = root.appendingPathComponent(CloudTargets.backupSubfolder, isDirectory: true)
         let startURL = FileManager.default.fileExists(atPath: backupRoot.path) ? backupRoot : root
         runChooser(startingAt: startURL,
-                   message: "Pick .kys / .sppreset files or a backup .zip from iCloud Drive.")
+                   message: "Pick .kys / .sppreset / panel layout .xml files or a backup .zip from iCloud Drive.")
     }
 
     func chooseFromDropbox() {
@@ -174,7 +177,7 @@ final class RestoreViewModel {
         let backupRoot = root.appendingPathComponent(CloudTargets.backupSubfolder, isDirectory: true)
         let startURL = FileManager.default.fileExists(atPath: backupRoot.path) ? backupRoot : root
         runChooser(startingAt: startURL,
-                   message: "Pick .kys / .sppreset files or a backup .zip from Dropbox.")
+                   message: "Pick .kys / .sppreset / panel layout .xml files or a backup .zip from Dropbox.")
     }
 
     private func runChooser(startingAt directoryURL: URL?, message: String) {
