@@ -112,6 +112,9 @@ xcodebuild archive \
     -scheme "$SCHEME" \
     -configuration Release \
     -archivePath "$ARCHIVE_PATH" \
+    MARKETING_VERSION="$MARKETING_VERSION" \
+    CURRENT_PROJECT_VERSION="$CURRENT_PROJECT_VERSION" \
+    DEVELOPMENT_TEAM="${DEVELOPMENT_TEAM:-3R5QGG9DW6}" \
     ARCHS=arm64 \
     ONLY_ACTIVE_ARCH=NO
 
@@ -154,6 +157,14 @@ RELEASE_ZIP_NAME="KeyLayoutManager_${SAFE_VERSION}.zip"
 RELEASE_ZIP="$BUILD_DIR/$RELEASE_ZIP_NAME"
 /usr/bin/ditto -c -k --keepParent --norsrc --noextattr --noacl --noqtn "$APP_PATH" "$RELEASE_ZIP"
 
+# Verify the exact archive users will extract before publishing it.
+VERIFY_DIR="$BUILD_DIR/verify"
+mkdir -p "$VERIFY_DIR"
+/usr/bin/ditto -x -k "$RELEASE_ZIP" "$VERIFY_DIR"
+/usr/bin/codesign --verify --deep --strict --verbose=2 "$VERIFY_DIR/$SCHEME.app"
+/usr/sbin/spctl --assess --type execute --verbose=2 "$VERIFY_DIR/$SCHEME.app"
+xcrun stapler validate "$VERIFY_DIR/$SCHEME.app"
+
 ZIP_SIZE=$(/usr/bin/stat -f%z "$RELEASE_ZIP")
 echo "==> Release zip: $RELEASE_ZIP ($ZIP_SIZE bytes)"
 
@@ -171,6 +182,8 @@ echo "==> Sparkle signature: $ED_SIGNATURE_LINE"
 # We already have length from stat, so just extract the signature value.
 ED_SIGNATURE=$(echo "$ED_SIGNATURE_LINE" | sed -n 's/.*sparkle:edSignature="\([^"]*\)".*/\1/p')
 
+[[ -n "$ED_SIGNATURE" ]] || { echo "ERROR: Sparkle signature is empty" >&2; exit 1; }
+
 # -----------------------------------------------------------------------------
 # Upload to GitHub release
 # -----------------------------------------------------------------------------
@@ -186,9 +199,9 @@ if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
         echo "==> Creating GitHub release $MARKETING_VERSION"
         gh release create "$MARKETING_VERSION" "$RELEASE_ZIP" \
             --repo "$GITHUB_REPOSITORY" \
-            --target main \
+            --target "${RELEASE_TARGET:-$(git rev-parse HEAD)}" \
             --title "$MARKETING_VERSION" \
-            --generate-notes
+            --notes-file "${RELEASE_NOTES_FILE:-RELEASE_NOTES.md}"
     fi
 else
     echo "==> GitHub CLI is unavailable or unauthenticated — skipping upload."
