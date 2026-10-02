@@ -1,0 +1,7 @@
+Use case: logo-brand
+Asset type: standalone alternative logo for Key Layout Manager, a native macOS utility for exporting, restoring and backing up Premiere keyboard shortcut layouts.
+Primary request: Design one original compact logo: a single substantial rounded keyboard keycap containing a beautifully simplified tray-and-arrow motif, suggesting a keyboard layout being safely stored and restored. The arrow and tray should be integrated as elegant recessed or raised geometry on the key surface. Strong recognizable silhouette, minimal detail, balanced proportions, readable at small app-icon sizes. Refined professional macOS utility aesthetic with softly sculpted edges and subtle material depth. Use a restrained harmonious color treatment that gives this alternative its own visual identity.
+Composition: one centered symbol with even generous padding on a transparent square canvas.
+Constraints: actual transparent background, no text or letters, no brand logos, no watermark, no mockup, no presentation board, no circular arrows, no overlapping keyboard tiles, no multiple variants. Deliver only the logo.
+
+Generated using the built-in image_gen tool.

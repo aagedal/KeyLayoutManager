@@ -1,5 +1,9 @@
 # Key Layout Manager
 
+<p align="center">
+  <img src="Logo-v3.png" alt="Key Layout Manager app icon" width="160" />
+</p>
+
 Small native macOS utility for managing Adobe Premiere keyboard layouts,
 source assignment presets, and full-profile backups. SwiftUI,
 non-sandboxed, Developer ID signed for distribution.

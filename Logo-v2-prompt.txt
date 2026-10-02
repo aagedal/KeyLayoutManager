@@ -1,0 +1,6 @@
+Use case: logo-brand
+Asset type: standalone logo for Key Layout Manager, a native macOS utility that exports, restores and transfers Adobe Premiere keyboard shortcut layouts and profile backups.
+Primary request: Create one polished, original logo symbol combining a small cluster of keyboard keycaps with a clear, elegant transfer/restore motif integrated into the geometry. A strong compact silhouette with generous negative space, readable at app-icon sizes. Refined contemporary macOS utility aesthetic, vector-like clean edges, restrained dimensional depth, thoughtful rounded corners. Use a harmonious restrained color treatment appropriate for a creative professional tool. Center the single symbol on a transparent square canvas with even padding.
+Constraints: actual transparent background, no text, no letters, no Adobe or Apple logos, no watermark, no mockup, no presentation board, no extra variants. Deliver the logo itself.
+
+Generated using the built-in image_gen tool.
