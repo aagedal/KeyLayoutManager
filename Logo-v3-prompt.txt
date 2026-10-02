@@ -1,0 +1,7 @@
+Use case: logo-brand
+Asset type: alternative standalone logo for Key Layout Manager, a native macOS utility for saving, transferring and restoring Premiere keyboard shortcut layouts.
+Primary request: Create one original, refined logo symbol: two overlapping keyboard-layout tiles, each a rounded square with a compact precise grid of keycap shapes, subtly offset to suggest saved layouts and transfer. A clever minimal geometric composition, strong silhouette and generous negative space, readable at small app-icon sizes. Flat vector-like design with crisp edges and only very subtle depth. Restrained harmonious color treatment suitable for a professional creative utility. Make this visually distinct from a glossy three-keycap logo surrounded by circular arrows: prioritize elegant layered geometry.
+Composition: one centered symbol on a transparent square canvas, even padding.
+Constraints: actual transparent background, no text, no letters, no brand logos, no watermark, no mockup, no presentation board, no circular arrows, no extra variants.
+
+Generated using the built-in image_gen tool.
