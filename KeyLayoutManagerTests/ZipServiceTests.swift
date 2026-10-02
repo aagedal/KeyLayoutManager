@@ -15,6 +15,49 @@ final class ZipServiceTests: XCTestCase {
         try? fm.removeItem(at: tmpRoot)
     }
 
+    func testExtractRejectsUnsafePathsBeforeRunningUnzip() async throws {
+        for path in ["../outside.kys", "/tmp/outside.kys", "Mac/../../outside.kys", "-option.kys"] {
+            do {
+                _ = try await ZipService().extract(entries: [path],
+                    from: tmpRoot.appendingPathComponent("missing.zip"),
+                    into: tmpRoot.appendingPathComponent("extracted"))
+                XCTFail("Unsafe entry should fail")
+            } catch ZipServiceError.unsafeEntry(let rejected) {
+                XCTAssertEqual(rejected, path)
+            }
+        }
+    }
+
+    func testExtractUsesLiteralFilenamesAndRejectsSymlinks() async throws {
+        let source = tmpRoot.appendingPathComponent("profile")
+        try fm.createDirectory(at: source, withIntermediateDirectories: true)
+        try Data("literal".utf8).write(to: source.appendingPathComponent("layout[1].kys"))
+        try Data("other".utf8).write(to: source.appendingPathComponent("layout1.kys"))
+        try fm.createSymbolicLink(at: source.appendingPathComponent("link.kys"),
+                                  withDestinationURL: source.appendingPathComponent("layout1.kys"))
+        let archive = tmpRoot.appendingPathComponent("backup.zip")
+        let service = ZipService()
+        try await service.createZip(contents: source,
+            manifest: BackupManifest(appVersion: "test", sourceVersion: "26.0", sourceProfileName: "test"), to: archive)
+        let destination = tmpRoot.appendingPathComponent("extracted")
+        try fm.removeItem(at: source.appendingPathComponent("link.kys"))
+        try await service.createZip(contents: source,
+            manifest: BackupManifest(appVersion: "test", sourceVersion: "26.0", sourceProfileName: "test"), to: archive)
+        let extracted = try await service.extract(entries: ["layout[1].kys"], from: archive, into: destination)
+        XCTAssertEqual(try String(contentsOf: XCTUnwrap(extracted["layout[1].kys"])), "literal")
+        XCTAssertFalse(fm.fileExists(atPath: destination.appendingPathComponent("layout1.kys").path))
+        try fm.createSymbolicLink(at: source.appendingPathComponent("link.kys"),
+                                  withDestinationURL: source.appendingPathComponent("layout1.kys"))
+        try await service.createZip(contents: source,
+            manifest: BackupManifest(appVersion: "test", sourceVersion: "26.0", sourceProfileName: "test"), to: archive)
+        do {
+            _ = try await service.extract(entries: ["link.kys"], from: archive, into: destination)
+            XCTFail("Symlink should fail")
+        } catch ZipServiceError.unsafeEntry(let rejected) {
+            XCTAssertTrue(rejected.contains("symbolic links"))
+        }
+    }
+
     func testLargeArchiveListingCompletes() async throws {
         let source = tmpRoot.appendingPathComponent("large")
         try fm.createDirectory(at: source, withIntermediateDirectories: true)

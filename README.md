@@ -53,7 +53,7 @@ when writing and when listing existing zips.
 
 ## Requirements
 
-- macOS 14 or later
+- macOS 14 or later on an Apple silicon Mac
 - Xcode 15+ for development
 - An Apple Developer ID for signed, notarized distribution
 
@@ -119,7 +119,7 @@ appcast.xml   # Sparkle feed
 xcodebuild test -scheme KeyLayoutManager -destination 'platform=macOS'
 ```
 
-Currently 27 tests across six suites: scanner edges (empty `Mac/`,
+The test suites cover scanner edges (empty `Mac/`,
 missing `Mac/`, multi-digit version sort, non-version sibling dirs),
 `CopyService` policies (overwrite, keepBoth name-bumping, skip, prompt
 routing), zip round-trip (create → list → extract a subset), backup

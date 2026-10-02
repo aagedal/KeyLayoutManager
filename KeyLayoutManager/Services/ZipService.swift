@@ -8,10 +8,13 @@ struct ZipEntry: Hashable {
 }
 
 enum ZipServiceError: LocalizedError {
+    case unsafeEntry(String)
     case toolFailed(command: String, exitCode: Int32, stderr: String)
 
     var errorDescription: String? {
         switch self {
+        case .unsafeEntry(let path):
+            return "Unsafe backup entry: \(path)"
         case .toolFailed(let command, let exitCode, let stderr):
             let detail = stderr.trimmingCharacters(in: .whitespacesAndNewlines)
             return detail.isEmpty
@@ -82,12 +85,13 @@ struct ZipService {
                                         arguments: ["-Z1", zip.path],
                                         cwd: nil)
         guard let text = String(data: data, encoding: .utf8) else { return [] }
-        return text
+        let paths = text
             .split(whereSeparator: { $0 == "\n" || $0 == "\r" })
             .map(String.init)
             .filter { !$0.isEmpty }
             .filter { !Self.isExcluded(path: $0) }
-            .map(ZipEntry.init(path:))
+        for path in paths { try Self.validateEntry(path) }
+        return paths.map(ZipEntry.init(path:))
     }
 
     func extract(entries: [String],
@@ -96,14 +100,35 @@ struct ZipService {
         let fileEntries = entries.filter { !$0.hasSuffix("/") && !Self.isExcluded(path: $0) }
         guard !fileEntries.isEmpty else { return [:] }
 
+        for entry in fileEntries { try Self.validateEntry(entry) }
+        // Reject archived links before unzip can use them as parent directories.
+        let listing = try await runProcess(executable: unzipBinary,
+            arguments: ["-Z", "-l", zip.path], cwd: nil)
+        if String(decoding: listing, as: UTF8.self).split(separator: "\n").contains(where: { $0.hasPrefix("l") }) {
+            throw ZipServiceError.unsafeEntry("Archive contains symbolic links")
+        }
         try fm.createDirectory(at: destinationDir, withIntermediateDirectories: true)
 
-        let arguments = ["-oq", zip.path] + fileEntries + ["-d", destinationDir.path]
+        // unzip treats entry names as patterns; escape them for exact selection.
+        let patterns = fileEntries.map { entry in
+            entry.reduce(into: "") { result, character in
+                if "\\*?[]".contains(character) { result.append("\\") }
+                result.append(character)
+            }
+        }
+        let arguments = ["-oq", zip.path] + patterns + ["-d", destinationDir.path]
         _ = try await runProcess(executable: unzipBinary, arguments: arguments, cwd: nil)
 
         var map: [String: URL] = [:]
         for entry in fileEntries {
-            map[entry] = destinationDir.appendingPathComponent(entry)
+            let url = destinationDir.appendingPathComponent(entry)
+            let root = destinationDir.resolvingSymlinksInPath().standardizedFileURL.path + "/"
+            guard url.resolvingSymlinksInPath().standardizedFileURL.path.hasPrefix(root),
+                  try url.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey]).isRegularFile == true,
+                  try url.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink != true else {
+                throw ZipServiceError.unsafeEntry(entry)
+            }
+            map[entry] = url
         }
         return map
     }
@@ -116,6 +141,15 @@ struct ZipService {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         return try? decoder.decode(BackupManifest.self, from: data)
+    }
+
+    private static func validateEntry(_ path: String) throws {
+        let components = path.split(separator: "/", omittingEmptySubsequences: false)
+        guard !path.hasPrefix("/"), !path.hasPrefix("-"),
+              !path.contains("\\"), !path.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }),
+              !components.contains("..") else {
+            throw ZipServiceError.unsafeEntry(path)
+        }
     }
 
     static func isExcluded(path: String) -> Bool {

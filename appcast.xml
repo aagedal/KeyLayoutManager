@@ -6,6 +6,23 @@
         <description>Most recent changes for KeyLayoutManager.</description>
         <language>en</language>
         <item>
+            <title>Version 1.1</title>
+            <pubDate>Sat, 03 Oct 2026 00:02:43 +0200</pubDate>
+            <sparkle:version>2</sparkle:version>
+            <sparkle:shortVersionString>1.1.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure
+                url="https://github.com/aagedal/KeyLayoutManager/releases/download/1.1.0/KeyLayoutManager_1-1-0.zip"
+                length="2368123"
+                type="application/octet-stream"
+                sparkle:edSignature="2klcREXU+AnyJYDL2JBMj/gQtXXYTEfVG5lHu4GWrWw+kPxgYMchmg8DozNRoyXoCEEG2uIwQM5uC/A89I2iAA==" />
+            <description><![CDATA[
+                <p>Transfer Premiere panel layouts alongside keyboard layouts and presets, enjoy a fresh app icon, and back up and restore profiles more reliably.</p>
+                <p>ZIP restores now reject unsafe paths and symbolic links and correctly handle filenames containing brackets.</p>
+                <p><a href="https://github.com/aagedal/KeyLayoutManager/releases/tag/1.1.0">Read the full release notes</a>.</p>
+            ]]></description>
+        </item>
+        <item>
             <title>Version 1.0</title>
             <pubDate>Wed, 13 May 2026 21:21:18 +0200</pubDate>
             <sparkle:version>1</sparkle:version>
