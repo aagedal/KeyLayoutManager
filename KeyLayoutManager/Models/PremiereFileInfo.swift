@@ -6,7 +6,7 @@ enum PremiereFileInfo {
         let ext = (relativePath as NSString).pathExtension.lowercased()
         let lowerPath = relativePath.lowercased()
 
-        if let kind = PremiereItemKind.kind(forFileExtension: ext) {
+        if let kind = PremiereItemKind.kind(forFileExtension: ext), kind != .workspace {
             return kindDescription(kind)
         }
 
@@ -53,6 +53,8 @@ enum PremiereFileInfo {
         switch kind {
         case .kys:
             return "Keyboard shortcut layout — your saved key bindings for Premiere."
+        case .workspace:
+            return "Panel layout — saved arrangement of Premiere panels and windows."
         case .sourcePatcher:
             return "Source Assignment preset — how source channels map onto sequence tracks."
         }

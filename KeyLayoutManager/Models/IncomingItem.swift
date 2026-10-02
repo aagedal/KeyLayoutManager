@@ -40,7 +40,9 @@ struct IncomingItem: Identifiable, Hashable {
     }
 
     var kindHint: PremiereItemKind? {
-        PremiereItemKind.kind(forFileExtension: fileExtensionLowercased)
+        let kind = PremiereItemKind.kind(forFileExtension: fileExtensionLowercased)
+        if kind == .workspace && topLevelGroup.lowercased() != "layouts" { return nil }
+        return kind
     }
 }
 

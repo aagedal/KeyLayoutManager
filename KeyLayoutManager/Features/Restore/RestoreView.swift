@@ -32,7 +32,7 @@ struct RestoreView: View {
             Image(systemName: "tray.and.arrow.down")
                 .font(.system(size: 36))
                 .foregroundStyle(.secondary)
-            Text("Drop .kys, .sppreset, or a backup .zip here")
+            Text("Drop .kys, .sppreset, panel layout .xml, or a backup .zip here")
                 .font(.headline)
             HStack(spacing: 8) {
                 Button {

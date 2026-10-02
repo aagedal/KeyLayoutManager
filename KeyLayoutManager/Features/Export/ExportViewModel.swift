@@ -30,19 +30,16 @@ final class ExportViewModel {
         (try? scanner.scanItems(of: .sourcePatcher)) ?? []
     }
 
-    var allItems: [KeyboardLayout] { allLayouts + allPresets }
+    var allItems: [KeyboardLayout] {
+        PremiereItemKind.allCases.flatMap { (try? scanner.scanItems(of: $0)) ?? [] }
+    }
 
     var selectedItems: [KeyboardLayout] {
         allItems.filter { selection.contains($0.fileURL) }
     }
 
     func items(for profile: ProfileLocation, kind: PremiereItemKind) -> [KeyboardLayout] {
-        let pool: [KeyboardLayout]
-        switch kind {
-        case .kys: pool = allLayouts
-        case .sourcePatcher: pool = allPresets
-        }
-        return pool.filter { $0.origin.id == profile.id }
+        ((try? scanner.scanItems(of: kind)) ?? []).filter { $0.origin.id == profile.id }
     }
 
     func refresh() {
@@ -91,7 +88,7 @@ final class ExportViewModel {
     func dropOnProfile(urls: [URL], profile: ProfileLocation) async {
         var pairs: [(URL, URL)] = []
         for url in urls {
-            guard let kind = PremiereItemKind.kind(forFileExtension: url.pathExtension) else { continue }
+            guard let kind = PremiereItemKind.kind(forFile: url) else { continue }
             pairs.append((url, profile.directoryURL(for: kind)))
         }
         guard !pairs.isEmpty else { return }
