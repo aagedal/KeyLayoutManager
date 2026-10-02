@@ -218,11 +218,11 @@ struct RestoreView: View {
             } label: {
                 Label(restoreLabel, systemImage: "tray.and.arrow.down.fill")
             }
-            .disabled(model.selectedCount == 0 || model.selectedDestination == nil)
+            .disabled(model.isRestoring || model.selectedCount == 0 || model.selectedDestination == nil)
             .keyboardShortcut(.return, modifiers: [.command])
 
             if !model.incomingItems.isEmpty {
-                Button("Clear") { model.clear() }
+                Button("Clear") { model.clear() }.disabled(model.isRestoring)
             }
             Spacer()
             if let status = model.statusMessage {

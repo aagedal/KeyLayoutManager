@@ -42,8 +42,13 @@ struct CopyService {
 
         switch resolved {
         case .overwrite:
-            try? fm.removeItem(at: target)
-            try fm.copyItem(at: source, to: target)
+            if source.resolvingSymlinksInPath().standardizedFileURL == target.resolvingSymlinksInPath().standardizedFileURL {
+                return .skipped(target)
+            }
+            let staging = destinationDir.appendingPathComponent(".KeyLayoutManager-copy-\(UUID().uuidString)")
+            defer { try? fm.removeItem(at: staging) }
+            try fm.copyItem(at: source, to: staging)
+            _ = try fm.replaceItemAt(target, withItemAt: staging)
             return .copied(target)
 
         case .keepBoth:

@@ -21,10 +21,9 @@ final class TempStage {
         if let existing = stagedByFile[source], fm.fileExists(atPath: existing.path) {
             return existing
         }
-        let target = stageRoot.appendingPathComponent(source.lastPathComponent)
-        if fm.fileExists(atPath: target.path) {
-            try? fm.removeItem(at: target)
-        }
+        let directory = stageRoot.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try fm.createDirectory(at: directory, withIntermediateDirectories: true)
+        let target = directory.appendingPathComponent(source.lastPathComponent)
         try fm.copyItem(at: source, to: target)
         stagedByFile[source] = target
         return target

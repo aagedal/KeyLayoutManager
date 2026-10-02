@@ -40,11 +40,14 @@ struct ZipService {
         try fm.createDirectory(at: stagingDir, withIntermediateDirectories: true)
         defer { try? fm.removeItem(at: stagingDir) }
 
-        if fm.fileExists(atPath: destination.path) {
-            try fm.removeItem(at: destination)
-        }
         try fm.createDirectory(at: destination.deletingLastPathComponent(),
                                withIntermediateDirectories: true)
+
+        let archiveDir = destination.deletingLastPathComponent()
+            .appendingPathComponent(".KeyLayoutManager-backup-\(UUID().uuidString)", isDirectory: true)
+        try fm.createDirectory(at: archiveDir, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: archiveDir) }
+        let archiveURL = archiveDir.appendingPathComponent("backup.zip")
 
         let manifestURL = stagingDir.appendingPathComponent(Self.manifestFilename)
         let encoder = JSONEncoder()
@@ -54,7 +57,7 @@ struct ZipService {
 
         _ = try await runProcess(executable: zipBinary,
                                  arguments: [
-                                    "-rqy", destination.path, ".",
+                                    "-rqy", archiveURL.path, ".",
                                     "-x", "*.DS_Store",
                                     "-x", "*/.DS_Store",
                                     "-x", "._*",
@@ -65,8 +68,13 @@ struct ZipService {
                                  cwd: sourceDir)
 
         _ = try await runProcess(executable: zipBinary,
-                                 arguments: ["-jq", destination.path, manifestURL.path],
+                                 arguments: ["-jq", archiveURL.path, manifestURL.path],
                                  cwd: stagingDir)
+        if fm.fileExists(atPath: destination.path) {
+            _ = try fm.replaceItemAt(destination, withItemAt: archiveURL)
+        } else {
+            try fm.moveItem(at: archiveURL, to: destination)
+        }
     }
 
     func listEntries(zip: URL) async throws -> [ZipEntry] {
@@ -129,14 +137,32 @@ struct ZipService {
             process.arguments = arguments
             if let cwd { process.currentDirectoryURL = cwd }
 
-            let stdoutPipe = Pipe()
-            let stderrPipe = Pipe()
-            process.standardOutput = stdoutPipe
-            process.standardError = stderrPipe
+            // File-backed output cannot fill a pipe and block the child before termination.
+            let outputDir = fm.temporaryDirectory.appendingPathComponent("KeyLayoutManager-process-\(UUID().uuidString)")
+            let stdoutURL = outputDir.appendingPathComponent("stdout")
+            let stderrURL = outputDir.appendingPathComponent("stderr")
+            let stdoutHandle: FileHandle
+            let stderrHandle: FileHandle
+            do {
+                try fm.createDirectory(at: outputDir, withIntermediateDirectories: true)
+                fm.createFile(atPath: stdoutURL.path, contents: nil)
+                fm.createFile(atPath: stderrURL.path, contents: nil)
+                stdoutHandle = try FileHandle(forWritingTo: stdoutURL)
+                stderrHandle = try FileHandle(forWritingTo: stderrURL)
+            } catch {
+                try? fm.removeItem(at: outputDir)
+                cont.resume(throwing: error)
+                return
+            }
+            process.standardOutput = stdoutHandle
+            process.standardError = stderrHandle
 
             process.terminationHandler = { proc in
-                let stdoutData = (try? stdoutPipe.fileHandleForReading.readToEnd()) ?? Data()
-                let stderrData = (try? stderrPipe.fileHandleForReading.readToEnd()) ?? Data()
+                try? stdoutHandle.close()
+                try? stderrHandle.close()
+                defer { try? fm.removeItem(at: outputDir) }
+                let stdoutData = (try? Data(contentsOf: stdoutURL)) ?? Data()
+                let stderrData = (try? Data(contentsOf: stderrURL)) ?? Data()
                 if proc.terminationStatus == 0 {
                     cont.resume(returning: stdoutData)
                 } else {
@@ -153,6 +179,9 @@ struct ZipService {
             do {
                 try process.run()
             } catch {
+                try? stdoutHandle.close()
+                try? stderrHandle.close()
+                try? fm.removeItem(at: outputDir)
                 cont.resume(throwing: error)
             }
         }
