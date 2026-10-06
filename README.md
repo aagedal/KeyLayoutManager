@@ -188,18 +188,24 @@ xcrun notarytool store-credentials Notary \
 gh auth login
 ```
 
+PKG packaging also requires a **Developer ID Installer** certificate in your keychain.
+Set `INSTALLER_SIGNING_IDENTITY` to override the default identity. To build and
+verify both artifacts without publishing or changing the appcast, run
+`PUBLISH_RELEASE=0 ./release-build.sh`.
+
 Then for each release, bump `MARKETING_VERSION` / `CURRENT_PROJECT_VERSION`
 in `project.yml`, regenerate the project, and run:
 
 ```bash
 ./release-build.sh                 # version read from project.yml
-./release-build.sh 1.1.0 2         # or override version + build
+./release-build.sh 1.1.1 3         # or override version + build
 ```
 
 The script archives, exports, notarizes, staples, zips (with AppleDouble
 metadata stripped so Gatekeeper doesn't reject the bundle), signs the
-zip with Sparkle's EdDSA key, creates a GitHub release, uploads the
-zip, and appends a new `<item>` to `appcast.xml`. Commit and push
+zip with Sparkle's EdDSA key, builds and notarizes a Developer ID Installer signed
+PKG that installs into `/Applications`, creates a GitHub release, uploads both
+the ZIP and PKG, and appends a new `<item>` to `appcast.xml`. Commit and push
 `appcast.xml` to GitHub, then synchronize the legacy Codeberg copy for
 older installed builds.
 

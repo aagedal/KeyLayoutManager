@@ -21,7 +21,8 @@
 #
 # Usage:
 #   ./release-build.sh                 # uses MARKETING_VERSION from the project
-#   ./release-build.sh 0.2.0 2         # override version + build number
+#   ./release-build.sh 1.1.1 3         # override version + build number
+#   PUBLISH_RELEASE=0 ./release-build.sh  # verify artifacts without uploading or changing appcast
 #
 set -euo pipefail
 
@@ -54,6 +55,7 @@ fi
 # -----------------------------------------------------------------------------
 NOTARYTOOL_PROFILE="${NOTARYTOOL_PROFILE:-Notary}"
 SIGN_UPDATE_BIN="${SIGN_UPDATE_BIN:-./bin/sign_update}"
+INSTALLER_SIGNING_IDENTITY="${INSTALLER_SIGNING_IDENTITY:-Developer ID Installer: Truls Aagedal (3R5QGG9DW6)}"
 GITHUB_REPOSITORY="aagedal/KeyLayoutManager"
 APPCAST="appcast.xml"
 
@@ -185,19 +187,41 @@ ED_SIGNATURE=$(echo "$ED_SIGNATURE_LINE" | sed -n 's/.*sparkle:edSignature="\([^
 [[ -n "$ED_SIGNATURE" ]] || { echo "ERROR: Sparkle signature is empty" >&2; exit 1; }
 
 # -----------------------------------------------------------------------------
+# Signed, notarized installer for installation into /Applications
+# -----------------------------------------------------------------------------
+RELEASE_PKG_NAME="KeyLayoutManager_${SAFE_VERSION}.pkg"
+RELEASE_PKG="$BUILD_DIR/$RELEASE_PKG_NAME"
+/usr/bin/productbuild \
+    --component "$APP_PATH" /Applications \
+    --sign "$INSTALLER_SIGNING_IDENTITY" \
+    "$RELEASE_PKG"
+xcrun notarytool submit "$RELEASE_PKG" \
+    --keychain-profile "$NOTARYTOOL_PROFILE" \
+    --wait
+xcrun stapler staple "$RELEASE_PKG"
+xcrun stapler validate "$RELEASE_PKG"
+/usr/sbin/pkgutil --check-signature "$RELEASE_PKG"
+/usr/sbin/spctl --assess --type install --verbose=2 "$RELEASE_PKG"
+
+# -----------------------------------------------------------------------------
 # Upload to GitHub release
 # -----------------------------------------------------------------------------
 DOWNLOAD_URL="https://github.com/$GITHUB_REPOSITORY/releases/download/$MARKETING_VERSION/$RELEASE_ZIP_NAME"
 
+if [[ "${PUBLISH_RELEASE:-1}" == "0" ]]; then
+    echo "==> Release artifacts verified; publication disabled. ZIP: $RELEASE_ZIP; PKG: $RELEASE_PKG"
+    exit 0
+fi
+
 if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
     if gh release view "$MARKETING_VERSION" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
         echo "==> Uploading $RELEASE_ZIP_NAME to existing GitHub release $MARKETING_VERSION"
-        gh release upload "$MARKETING_VERSION" "$RELEASE_ZIP" \
+        gh release upload "$MARKETING_VERSION" "$RELEASE_ZIP" "$RELEASE_PKG" \
             --repo "$GITHUB_REPOSITORY" \
             --clobber
     else
         echo "==> Creating GitHub release $MARKETING_VERSION"
-        gh release create "$MARKETING_VERSION" "$RELEASE_ZIP" \
+        gh release create "$MARKETING_VERSION" "$RELEASE_ZIP" "$RELEASE_PKG" \
             --repo "$GITHUB_REPOSITORY" \
             --target "${RELEASE_TARGET:-$(git rev-parse HEAD)}" \
             --title "$MARKETING_VERSION" \
@@ -206,7 +230,7 @@ if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
 else
     echo "==> GitHub CLI is unavailable or unauthenticated — skipping upload."
     echo "    1. Create release $MARKETING_VERSION at https://github.com/$GITHUB_REPOSITORY/releases/new"
-    echo "    2. Attach $RELEASE_ZIP"
+    echo "    2. Attach $RELEASE_ZIP and $RELEASE_PKG"
 fi
 
 # -----------------------------------------------------------------------------
@@ -252,3 +276,5 @@ echo "    git add $APPCAST && git commit -m \"Release $MARKETING_VERSION\" && gi
 
 SHA256=$(shasum -a 256 "$RELEASE_ZIP" | awk '{print $1}')
 echo "==> SHA256 of release zip: $SHA256"
+
+echo "==> SHA256 of release pkg: $(shasum -a 256 "$RELEASE_PKG" | awk '{print $1}')"
